@@ -17,6 +17,8 @@ class SwipeScreen extends StatefulWidget {
 
 class _SwipeScreenState extends State<SwipeScreen> {
   int _currentIndex = 0;
+  final ScrollController _previewScrollController = ScrollController();
+
   Offset _dragOffset = Offset.zero;
   final List<GalleryMediaItem> _undoStack = [];
 
@@ -58,6 +60,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
       _currentIndex++;
       _dragOffset = Offset.zero;
     });
+    _scrollToCurrent();
   }
 
   void _undo() {
@@ -73,6 +76,23 @@ class _SwipeScreenState extends State<SwipeScreen> {
     });
   }
 
+  
+  void _scrollToCurrent() {
+    if (!_previewScrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_previewScrollController.hasClients) return;
+      final itemWidth = 52.0; 
+      final screenWidth = MediaQuery.of(context).size.width;
+      final targetOffset = (_currentIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
+      
+      _previewScrollController.animateTo(
+        targetOffset.clamp(0.0, _previewScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   void _jumpToIndex(int targetIndex) {
     if (targetIndex < 0 || targetIndex >= widget.group.items.length) return;
     HapticFeedback.selectionClick();
@@ -81,6 +101,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
       widget.group.currentIndex = targetIndex;
       _dragOffset = Offset.zero;
     });
+    _scrollToCurrent();
   }
 
   // ── Build ────────────────────────────────────────────────────────────────
@@ -179,54 +200,38 @@ class _SwipeScreenState extends State<SwipeScreen> {
     final total = items.length;
     if (total == 0) return const SizedBox.shrink();
 
-    // 5 slots: 2 past, 1 center (current), 2 upcoming
-    const offsets = [-2, -1, 0, 1, 2];
-
     return Container(
+      height: 80,
       margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF141414),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: offsets.map((offset) {
-          final targetIndex = _currentIndex + offset;
-          final isCenter = offset == 0;
-          final isPast = offset < 0;
+      child: ListView.builder(
+        controller: _previewScrollController,
+        scrollDirection: Axis.horizontal,
+        itemCount: total,
+        padding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.of(context).size.width / 2 - 26, 
+        ),
+        physics: const BouncingScrollPhysics(),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final isCenter = index == _currentIndex;
+          final isPast = index < _currentIndex;
 
-          if (targetIndex < 0 || targetIndex >= total) {
-            // Placeholder empty slot to keep 5-slot symmetry
-            return Container(
-              width: isCenter ? 52 : 44,
-              height: isCenter ? 62 : 52,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.02),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.04),
-                ),
-              ),
-              child: Icon(
-                offset < 0 ? Icons.history_rounded : Icons.more_horiz_rounded,
-                size: 16,
-                color: Colors.white12,
-              ),
-            );
-          }
-
-          final item = items[targetIndex];
-          return _PreviewThumbnailSlot(
-            key: ValueKey('preview_${item.id}_$targetIndex'),
-            item: item,
-            isCenter: isCenter,
-            isPast: isPast,
-            onTap: isPast ? () => _jumpToIndex(targetIndex) : null,
+          return Center(
+            child: _PreviewThumbnailSlot(
+              key: ValueKey('preview_${item.id}_$index'),
+              item: item,
+              isCenter: isCenter,
+              isPast: isPast,
+              onTap: () => _jumpToIndex(index),
+            ),
           );
-        }).toList(),
+        },
       ),
     );
   }
