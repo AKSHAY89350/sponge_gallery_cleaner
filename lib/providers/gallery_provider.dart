@@ -225,7 +225,7 @@ class GalleryProvider extends ChangeNotifier {
       if (albums.isNotEmpty) {
          final total = await albums.first.assetCountAsync;
          if (total > 3000) {
-            _loadRemainingBackground(albums.first, 3000, total.clamp(0, 20000));
+            _loadRemainingBackground(albums.first, 3000, total.clamp(0, 50000));
          }
       }
     } catch (e) {
@@ -405,4 +405,5 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
 
