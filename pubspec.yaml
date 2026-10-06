@@ -1,0 +1,31 @@
+name: sponge_gallery_cleaner
+description: A gallery cleaner app with swipe-to-delete interface - inspired by Sponge
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  photo_manager: ^3.3.0
+  flutter_card_swiper: ^7.0.1
+  provider: ^6.1.2
+  shared_preferences: ^2.3.2
+  path: ^1.9.0
+  intl: ^0.19.0
+  permission_handler: ^11.3.1
+  vibration: ^3.2.1
+  video_player: ^2.14.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
