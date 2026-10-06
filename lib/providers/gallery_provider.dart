@@ -48,7 +48,7 @@ class GalleryProvider extends ChangeNotifier {
         final total = await allAlbum.assetCountAsync;
         final assets = await allAlbum.getAssetListRange(
           start: 0,
-          end: total.clamp(0, 2000),
+          end: total.clamp(0, 15000), // Increased from 2000 to show more months
         );
 
         for (final asset in assets) {
@@ -320,3 +320,4 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
