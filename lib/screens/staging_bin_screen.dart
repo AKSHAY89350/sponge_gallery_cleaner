@@ -242,23 +242,36 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
 
     if (confirmed == true && mounted) {
       setState(() => _isDeleting = true);
-      final deletedCount = await provider.permanentlyDeleteStaged();
-      if (mounted) {
-        setState(() => _isDeleting = false);
-        if (deletedCount > 0) {
-          navigator.pop();
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('✅ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
-              backgroundColor: const Color(0xFF10B981),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        } else {
+      try {
+        final deletedCount = await provider.permanentlyDeleteStaged();
+        if (mounted) {
+          setState(() => _isDeleting = false);
+          if (deletedCount > 0) {
+            navigator.pop();
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('✅ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
+                backgroundColor: const Color(0xFF10B981),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('⚠️ Deletion cancelled or denied by system.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isDeleting = false);
           messenger.showSnackBar(
             const SnackBar(
-              content: Text('⚠️ Deletion cancelled or denied by system.'),
-              backgroundColor: Colors.orange,
+              content: Text('❌ Error deleting items. System rejected request.'),
+              backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
           );
