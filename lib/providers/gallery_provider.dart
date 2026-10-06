@@ -108,6 +108,68 @@ class GalleryProvider extends ChangeNotifier {
         }
       }
 
+      // ────────────────────────────────────────────────────────────────────────
+      // DIRECT SCREENSHOTS ALBUM FETCH
+      // Bypass the 2000 recent items limit to get ALL screenshots perfectly
+      // ────────────────────────────────────────────────────────────────────────
+      AssetPathEntity? screenshotAlbum;
+      for (final album in albums) {
+        if (album.name.toLowerCase().contains('screenshot')) {
+          screenshotAlbum = album;
+          break;
+        }
+      }
+
+      if (screenshotAlbum != null) {
+        final ssTotal = await screenshotAlbum.assetCountAsync;
+        final ssAssets = await screenshotAlbum.getAssetListRange(
+          start: 0, 
+          end: ssTotal.clamp(0, 3000) // load up to 3000 screenshots
+        );
+        
+        for (final asset in ssAssets) {
+          // Skip if already found in the main "Recent" pass
+          if (screenshots.any((i) => i.id == asset.id)) continue;
+
+          int fileSizeBytes = 0;
+          String filePath = '';
+          try {
+            final originFile = await asset.file; // .file is faster than .originFile
+            filePath = originFile?.path ?? '';
+            fileSizeBytes = originFile?.lengthSync() ?? 0;
+          } catch (_) {}
+
+          final item = GalleryMediaItem(
+            id: asset.id,
+            path: filePath,
+            dateTaken: asset.createDateTime.millisecondsSinceEpoch,
+            fileSize: fileSizeBytes,
+            isVideo: asset.type == AssetType.video,
+            videoDuration: asset.type == AssetType.video ? asset.videoDuration : null,
+            width: asset.width,
+            height: asset.height,
+            mimeType: asset.mimeType,
+          );
+
+          // Load decision
+          final savedDecision = prefs.getString('decision_${item.id}');
+          if (savedDecision != null) {
+            item.decision = SwipeAction.values.firstWhere(
+              (e) => e.name == savedDecision,
+              orElse: () => SwipeAction.keep,
+            );
+            if (item.decision == SwipeAction.trash) {
+              _stagingBin.add(item);
+            }
+          }
+
+          screenshots.add(item);
+        }
+      }
+
+      // Sort screenshots by date newest first
+      screenshots.sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
+
       // Build sorted month groups (newest first)
       monthGroups = byMonth.entries.map((entry) {
         final parts = entry.key.split('-');
