@@ -244,7 +244,7 @@ class GalleryProvider extends ChangeNotifier {
     final Map<String, List<GalleryMediaItem>> byMonthLocal = {};
     
     // Process in chunks of 500 to keep UI extremely responsive
-    const chunkSize = 500;
+    const chunkSize = 3000;
     for (int i = start; i < end; i += chunkSize) {
       final currentEnd = (i + chunkSize).clamp(start, end);
       final assets = await album.getAssetListRange(start: i, end: currentEnd);
@@ -405,5 +405,6 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
 
 
