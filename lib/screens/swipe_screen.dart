@@ -73,6 +73,16 @@ class _SwipeScreenState extends State<SwipeScreen> {
     });
   }
 
+  void _jumpToIndex(int targetIndex) {
+    if (targetIndex < 0 || targetIndex >= widget.group.items.length) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _currentIndex = targetIndex;
+      widget.group.currentIndex = targetIndex;
+      _dragOffset = Offset.zero;
+    });
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -83,6 +93,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
       body: Column(
         children: [
           _buildProgressBar(),
+          if (!_isDone) _buildTopPreviewStrip(),
           Expanded(child: _isDone ? _buildDoneView() : _buildCardArea()),
           if (!_isDone) ...[_buildControls(), const SizedBox(height: 24)],
         ],
@@ -157,6 +168,65 @@ class _SwipeScreenState extends State<SwipeScreen> {
           valueColor: const AlwaysStoppedAnimation(Color(0xFF6C63FF)),
           minHeight: 4,
         ),
+      ),
+    );
+  }
+
+  // ── Top 5-Item Preview Strip ─────────────────────────────────────────────
+
+  Widget _buildTopPreviewStrip() {
+    final items = widget.group.items;
+    final total = items.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    // 5 slots: 2 past, 1 center (current), 2 upcoming
+    const offsets = [-2, -1, 0, 1, 2];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141414),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: offsets.map((offset) {
+          final targetIndex = _currentIndex + offset;
+          final isCenter = offset == 0;
+          final isPast = offset < 0;
+
+          if (targetIndex < 0 || targetIndex >= total) {
+            // Placeholder empty slot to keep 5-slot symmetry
+            return Container(
+              width: isCenter ? 52 : 44,
+              height: isCenter ? 62 : 52,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.04),
+                ),
+              ),
+              child: Icon(
+                offset < 0 ? Icons.history_rounded : Icons.more_horiz_rounded,
+                size: 16,
+                color: Colors.white12,
+              ),
+            );
+          }
+
+          final item = items[targetIndex];
+          return _PreviewThumbnailSlot(
+            key: ValueKey('preview_${item.id}_$targetIndex'),
+            item: item,
+            isCenter: isCenter,
+            isPast: isPast,
+            onTap: isPast ? () => _jumpToIndex(targetIndex) : null,
+          );
+        }).toList(),
       ),
     );
   }
@@ -467,7 +537,17 @@ class _SwipeScreenState extends State<SwipeScreen> {
                       'Review Trash (${provider.stagingBin.length} items)'),
                 ),
               ),
-            const SizedBox(height: 14),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 0;
+                  widget.group.currentIndex = 0;
+                });
+              },
+              child: const Text('Review Again 🔄',
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
+            ),
+            const SizedBox(height: 6),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Back to Home',
@@ -578,3 +658,142 @@ class _StatBadge extends StatelessWidget {
     );
   }
 }
+
+// ── Top Preview Strip Thumbnail Slot ──────────────────────────────────────────
+
+class _PreviewThumbnailSlot extends StatelessWidget {
+  final GalleryMediaItem item;
+  final bool isCenter;
+  final bool isPast;
+  final VoidCallback? onTap;
+
+  const _PreviewThumbnailSlot({
+    super.key,
+    required this.item,
+    required this.isCenter,
+    required this.isPast,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = isCenter ? 52.0 : 44.0;
+    final height = isCenter ? 62.0 : 52.0;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        width: width,
+        height: height,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isCenter
+                ? const Color(0xFF6C63FF)
+                : (isPast && item.decision == SwipeAction.trash
+                    ? Colors.red.withValues(alpha: 0.6)
+                    : (isPast && item.decision == SwipeAction.keep
+                        ? const Color(0xFF10B981).withValues(alpha: 0.6)
+                        : Colors.white.withValues(alpha: 0.1))),
+            width: isCenter ? 2.5 : 1.2,
+          ),
+          boxShadow: isCenter
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(isCenter ? 7.5 : 8.8),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Thumbnail
+              FutureBuilder<Uint8List?>(
+                future: AssetEntity.fromId(item.id).then(
+                  (entity) => entity?.thumbnailDataWithSize(
+                    const ThumbnailSize.square(140),
+                    quality: 75,
+                  ),
+                ),
+                builder: (ctx, snap) {
+                  if (snap.hasData && snap.data != null) {
+                    return Image.memory(
+                      snap.data!,
+                      fit: BoxFit.cover,
+                    );
+                  }
+                  return Container(color: const Color(0xFF222222));
+                },
+              ),
+
+              // Slight dim for non-center items to make center pop
+              if (!isCenter)
+                Container(
+                  color: Colors.black.withValues(
+                    alpha: isPast ? 0.35 : 0.25,
+                  ),
+                ),
+
+              // Left side / Past item decision badge ("jo rhega and jo nhi rhega")
+              if (isPast && item.decision != null)
+                Positioned(
+                  top: 3,
+                  left: 3,
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: item.decision == SwipeAction.trash
+                          ? Colors.red
+                          : const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      item.decision == SwipeAction.trash
+                          ? Icons.delete_rounded
+                          : Icons.check_rounded,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+
+              // Video indicator icon
+              if (item.isVideo)
+                Positioned(
+                  bottom: 3,
+                  right: 3,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
