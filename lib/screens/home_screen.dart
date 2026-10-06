@@ -13,6 +13,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _showAllMonths = false;
+
   @override
   void initState() {
     super.initState();
@@ -283,8 +285,54 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else
-          ...provider.monthGroups
-              .map((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))),
+          ...(() {
+             if (_showAllMonths) {
+               return provider.monthGroups.map((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
+             } else {
+               final visibleGroups = <MonthGroup>[];
+               if (provider.monthGroups.isNotEmpty) {
+                 visibleGroups.add(provider.monthGroups.first);
+               }
+               for (var i = 1; i < provider.monthGroups.length; i++) {
+                 final g = provider.monthGroups[i];
+                 if (g.currentIndex > 0 && g.currentIndex < g.items.length) {
+                   visibleGroups.add(g);
+                 }
+               }
+               
+               final cards = visibleGroups.map<Widget>((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
+               
+               if (provider.monthGroups.length > visibleGroups.length) {
+                 cards.add(
+                   Padding(
+                     padding: const EdgeInsets.only(top: 8.0, bottom: 20),
+                     child: TextButton(
+                       onPressed: () => setState(() => _showAllMonths = true),
+                       style: TextButton.styleFrom(
+                         foregroundColor: const Color(0xFF6C63FF),
+                       ),
+                       child: const Text('View All Months', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                     ),
+                   )
+                 );
+               }
+               return cards;
+             }
+          })(),
+
+          if (_showAllMonths && provider.isBackgroundLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Column(
+                   children: [
+                      CircularProgressIndicator(color: Color(0xFF6C63FF), strokeWidth: 2),
+                      SizedBox(height: 12),
+                      Text("Loading older months in background...", style: TextStyle(color: Colors.white54, fontSize: 13)),
+                   ]
+                )
+              )
+            ),
       ],
     );
   }
