@@ -306,31 +306,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
     );
   }
 
-  Widget _buildThumbnail(GalleryMediaItem item) {
-    return FutureBuilder<Uint8List?>(
-      future: AssetEntity.fromId(item.id).then(
-        (entity) => entity?.thumbnailDataWithSize(
-          const ThumbnailSize(800, 800),
-          quality: 85,
-        ),
-      ),
-      builder: (ctx, snap) {
-        if (snap.hasData && snap.data != null) {
-          return Image.memory(
-            snap.data!,
-            fit: BoxFit.cover,
-          );
-        }
-        return Container(
-          color: const Color(0xFF252525),
-          child: const Center(
-            child: CircularProgressIndicator(
-                color: Color(0xFF6C63FF), strokeWidth: 2),
-          ),
-        );
-      },
-    );
-  }
+
 
   Widget _buildPhotoCard(GalleryMediaItem item, double dragX) {
     final isTopCard = _currentItem?.id == item.id;
@@ -355,10 +331,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
             VideoCardPlayer(
               key: ValueKey('video_${item.id}'),
               item: item,
-              thumbnailWidget: _buildThumbnail(item),
+              thumbnailWidget: _CachedMediaThumbnail(item: item),
             )
           else
-            _buildThumbnail(item),
+            _CachedMediaThumbnail(item: item),
 
           // Color tint on swipe
           if (dragX > 40)
@@ -716,22 +692,11 @@ class _PreviewThumbnailSlot extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Thumbnail
-              FutureBuilder<Uint8List?>(
-                future: AssetEntity.fromId(item.id).then(
-                  (entity) => entity?.thumbnailDataWithSize(
-                    const ThumbnailSize.square(140),
-                    quality: 75,
-                  ),
-                ),
-                builder: (ctx, snap) {
-                  if (snap.hasData && snap.data != null) {
-                    return Image.memory(
-                      snap.data!,
-                      fit: BoxFit.cover,
-                    );
-                  }
-                  return Container(color: const Color(0xFF222222));
-                },
+              _CachedMediaThumbnail(
+                item: item,
+                size: 140,
+                quality: 75,
+                placeholderColor: const Color(0xFF222222),
               ),
 
               // Slight dim for non-center items to make center pop
@@ -797,3 +762,74 @@ class _PreviewThumbnailSlot extends StatelessWidget {
   }
 }
 
+
+
+class _CachedMediaThumbnail extends StatefulWidget {
+  final GalleryMediaItem item;
+  final int size;
+  final int quality;
+  final Color placeholderColor;
+
+  const _CachedMediaThumbnail({
+    super.key,
+    required this.item,
+    this.size = 800,
+    this.quality = 85,
+    this.placeholderColor = const Color(0xFF252525),
+  });
+
+  @override
+  State<_CachedMediaThumbnail> createState() => _CachedMediaThumbnailState();
+}
+
+class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
+  Future<Uint8List?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CachedMediaThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _loadFuture();
+    }
+  }
+
+  void _loadFuture() {
+    _future = AssetEntity.fromId(widget.item.id).then(
+      (entity) => entity?.thumbnailDataWithSize(
+        ThumbnailSize.square(widget.size),
+        quality: widget.quality,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _future,
+      builder: (ctx, snap) {
+        if (snap.hasData && snap.data != null) {
+          return Image.memory(
+            snap.data!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+        }
+        return Container(
+          color: widget.placeholderColor,
+          child: widget.size > 200
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF6C63FF), strokeWidth: 2),
+                )
+              : null,
+        );
+      },
+    );
+  }
+}
