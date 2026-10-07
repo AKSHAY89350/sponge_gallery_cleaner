@@ -4,6 +4,7 @@ import '../providers/gallery_provider.dart';
 import '../models/gallery_media_item.dart';
 import 'swipe_screen.dart';
 import 'staging_bin_screen.dart';
+import 'large_files_menu_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -233,15 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => _openGroup(context, provider.screenshotsGroup!),
                   ),
                 ),
-              if (provider.largeFilesGroup != null)
+              if (provider.totalLargeFilesCount > 0)
                 Expanded(
-                  child: _QuickCard(
-                    icon: Icons.video_library_rounded,
-                    label: 'Large\nFiles',
-                    count: provider.largeFilesGroup!.totalItems,
-                    color: const Color(0xFFEF4444),
-                    onTap: () => _openGroup(context, provider.largeFilesGroup!),
-                  ),
+                  child: _QuickCard(icon: Icons.video_library_rounded, label: 'Large\nFiles', count: provider.totalLargeFilesCount, color: const Color(0xFFEF4444), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LargeFilesMenuScreen())),),
                 ),
             ];
 
@@ -505,3 +500,4 @@ class _MonthCard extends StatelessWidget {
     );
   }
 }
+

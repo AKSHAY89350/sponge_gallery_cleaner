@@ -4,7 +4,7 @@ class GalleryMediaItem {
   final String id;
   final String path;
   final int dateTaken; // Epoch milliseconds
-  final int fileSize; // Bytes
+  int fileSize; // Bytes
   final bool isVideo;
   final Duration? videoDuration;
   final int width;

@@ -7,8 +7,17 @@ import 'dart:math';
 class GalleryProvider extends ChangeNotifier {
   List<MonthGroup> monthGroups = [];
   MonthGroup? screenshotsGroup;
-  MonthGroup? largeFilesGroup;
   MonthGroup? randomGroup;
+  
+  // Large Files Categories
+  MonthGroup? largeFiles10To100;
+  MonthGroup? largeFiles100To500;
+  MonthGroup? largeFiles500To1GB;
+  MonthGroup? largeFilesOver1GB;
+  int get totalLargeFilesCount => (largeFiles10To100?.items.length ?? 0) + 
+                                  (largeFiles100To500?.items.length ?? 0) + 
+                                  (largeFiles500To1GB?.items.length ?? 0) + 
+                                  (largeFilesOver1GB?.items.length ?? 0);
 
   bool isLoading = false;
   bool isInitialized = false;
@@ -23,6 +32,35 @@ class GalleryProvider extends ChangeNotifier {
     return result.isAuth;
   }
 
+
+  void _categorizeLargeFile(GalleryMediaItem item) {
+    if (item.fileSize <= 10 * 1024 * 1024) return; // not large
+
+    MonthGroup getOrCreateGroup(MonthGroup? group, String label, String key) {
+      if (group == null) {
+        return MonthGroup(label: label, yearMonthKey: key, items: [item], isLargeFiles: true);
+      }
+      if (!group.items.any((i) => i.id == item.id)) {
+        group.items.add(item);
+        group.items.sort((a, b) => b.fileSize.compareTo(a.fileSize)); // sort by size descending
+        group.recalculateCurrentIndex();
+      }
+      return group;
+    }
+
+    final mb = item.fileSize / (1024 * 1024);
+    if (mb > 10 && mb <= 100) {
+      largeFiles10To100 = getOrCreateGroup(largeFiles10To100, 'Large Files (10MB - 100MB)', 'large_10_100');
+    } else if (mb > 100 && mb <= 500) {
+      largeFiles100To500 = getOrCreateGroup(largeFiles100To500, 'Huge Files (100MB - 500MB)', 'large_100_500');
+    } else if (mb > 500 && mb <= 1024) {
+      largeFiles500To1GB = getOrCreateGroup(largeFiles500To1GB, 'Massive Files (500MB - 1GB)', 'large_500_1gb');
+    } else if (mb > 1024) {
+      largeFilesOver1GB = getOrCreateGroup(largeFilesOver1GB, 'Gigantic Files (> 1GB)', 'large_1gb_plus');
+    }
+  }
+
+  List<AssetEntity> _initialAssets = [];
   Future<void> loadGallery() async {
     isLoading = true;
     notifyListeners();
@@ -48,12 +86,12 @@ class GalleryProvider extends ChangeNotifier {
         final allAlbum = albums.first;
         final total = await allAlbum.assetCountAsync;
         final initialLoadEnd = total.clamp(0, 3000);
-        final assets = await allAlbum.getAssetListRange(
+        _initialAssets = await allAlbum.getAssetListRange(
           start: 0,
           end: initialLoadEnd,
         );
 
-        for (final asset in assets) {
+        for (final asset in _initialAssets) {
           int fileSizeBytes = 0;
           String filePath = asset.title ?? '';
           // 🚀 SKIPPING await asset.file HERE FOR INSTANT STARTUP 🚀
@@ -97,10 +135,7 @@ class GalleryProvider extends ChangeNotifier {
             screenshots.add(item);
           }
 
-          // Large files filter (>10MB)
-          if (item.fileSize > 10 * 1024 * 1024) {
-            largeFiles.add(item);
-          }
+
         }
       }
 
@@ -129,14 +164,7 @@ class GalleryProvider extends ChangeNotifier {
         )..recalculateCurrentIndex();
       }
 
-      if (largeFiles.isNotEmpty) {
-        largeFilesGroup = MonthGroup(
-          label: 'Large Files (>10MB)',
-          yearMonthKey: 'large',
-          items: largeFiles,
-          isLargeFiles: true,
-        )..recalculateCurrentIndex();
-      }
+
 
       // Random group - pick 20 random items
       if (allItems.length > 5) {
@@ -173,6 +201,10 @@ class GalleryProvider extends ChangeNotifier {
             _loadRemainingBackground(albums.first, 3000, total.clamp(0, 50000));
          }
       }
+      
+      // Fetch sizes for initial items in background
+      _fetchSizesForInitialItems(_initialAssets);
+
     } catch (e) {
       debugPrint('Error loading gallery: $e');
     }
@@ -248,6 +280,32 @@ class GalleryProvider extends ChangeNotifier {
     }
   }
 
+
+  Future<void> _fetchSizesForInitialItems(List<AssetEntity> assets) async {
+    for (int i = 0; i < assets.length; i++) {
+      final asset = assets[i];
+      try {
+        final file = await asset.file;
+        if (file != null) {
+          final size = file.lengthSync();
+          // Find the item and update it
+          for (final group in monthGroups) {
+            final idx = group.items.indexWhere((it) => it.id == asset.id);
+            if (idx != -1) {
+              group.items[idx].fileSize = size;
+              _categorizeLargeFile(group.items[idx]);
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+      
+      if (i > 0 && i % 50 == 0) {
+        notifyListeners();
+      }
+    }
+    notifyListeners();
+  }
   Future<void> _loadRemainingBackground(AssetPathEntity album, int start, int end) async {
     isBackgroundLoading = true;
     notifyListeners();
@@ -261,7 +319,7 @@ class GalleryProvider extends ChangeNotifier {
       final currentEnd = (i + chunkSize).clamp(start, end);
       final assets = await album.getAssetListRange(start: i, end: currentEnd);
       
-      for (final asset in assets) {
+      for (final asset in _initialAssets) {
         int fileSizeBytes = 0;
         String filePath = '';
         try {
@@ -310,7 +368,7 @@ class GalleryProvider extends ChangeNotifier {
         }
 
         if (item.fileSize > 10 * 1024 * 1024) {
-           largeFilesGroup?.items.add(item);
+           largeFiles10To100?.items.add(item);
         }
       }
       
@@ -396,7 +454,7 @@ class GalleryProvider extends ChangeNotifier {
       group.items.removeWhere((i) => deletedIds.contains(i.id));
     }
     screenshotsGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
-    largeFilesGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    
     randomGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
 
     notifyListeners();
@@ -440,6 +498,9 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
+
+
 
 
 
