@@ -336,10 +336,10 @@ class _SwipeScreenState extends State<SwipeScreen> {
             VideoCardPlayer(
               key: ValueKey('video_${item.id}'),
               item: item,
-              thumbnailWidget: _CachedMediaThumbnail(item: item),
+              thumbnailWidget: _CachedMediaThumbnail(item: item, fit: BoxFit.contain),
             )
           else
-            _CachedMediaThumbnail(item: item),
+            _CachedMediaThumbnail(item: item, fit: BoxFit.contain),
 
           // Color tint on swipe
           if (dragX > 40)
@@ -774,6 +774,7 @@ class _CachedMediaThumbnail extends StatefulWidget {
   final int size;
   final int quality;
   final Color placeholderColor;
+  final BoxFit fit;
 
   const _CachedMediaThumbnail({
     super.key,
@@ -781,6 +782,7 @@ class _CachedMediaThumbnail extends StatefulWidget {
     this.size = 800,
     this.quality = 85,
     this.placeholderColor = const Color(0xFF252525),
+    this.fit = BoxFit.cover,
   });
 
   @override
@@ -821,7 +823,7 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
         if (snap.hasData && snap.data != null) {
           return Image.memory(
             snap.data!,
-            fit: BoxFit.cover,
+            fit: widget.fit,
             gaplessPlayback: true,
           );
         }
