@@ -25,6 +25,7 @@ class GalleryProvider extends ChangeNotifier {
   bool isLoading = false;
   bool isInitialized = false;
   bool isBackgroundLoading = false;
+    double backgroundLoadProgress = 0.0;
   int totalTrashedBytes = 0;
 
   double? totalDiskSpaceMB;
@@ -341,7 +342,9 @@ class GalleryProvider extends ChangeNotifier {
     
     // Process in chunks of 500 to keep UI extremely responsive
     const chunkSize = 3000;
-    for (int i = start; i < end; i += chunkSize) {
+    final totalToLoad = end - start;
+      for (int i = start; i < end; i += chunkSize) {
+        backgroundLoadProgress = (i - start) / totalToLoad;
       final currentEnd = (i + chunkSize).clamp(start, end);
       final assets = await album.getAssetListRange(start: i, end: currentEnd);
       for (final asset in assets) {
@@ -408,6 +411,7 @@ class GalleryProvider extends ChangeNotifier {
     _findSimilarPhotos();
     } finally {
       isBackgroundLoading = false;
+      backgroundLoadProgress = 1.0;
       notifyListeners();
     }
   }
@@ -570,4 +574,6 @@ class GalleryProvider extends ChangeNotifier {
     similarPhotoGroups = newGroups;
   }
 }
+
+
 

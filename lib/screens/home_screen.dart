@@ -221,25 +221,44 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
-        if (provider.similarPhotoGroups.isNotEmpty)
-          _QuickCard(
-            label: 'Similar Photos',
-            count: provider.similarPhotoGroups.length,
-            icon: Icons.filter_none_rounded,
-            color: const Color(0xFFE83A59),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
+        Row(
+          children: [
+            if (provider.similarPhotoGroups.isNotEmpty) ...[
+              Expanded(
+                child: _QuickCard(
+                  label: 'Similar\nPhotos',
+                  count: provider.similarPhotoGroups.length,
+                  icon: Icons.filter_none_rounded,
+                  color: const Color(0xFFE83A59),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: _QuickCard(
+                label: 'Blurry\nPhotos',
+                count: 0,
+                icon: Icons.blur_on_rounded,
+                color: Colors.orangeAccent,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
+                ),
+              ),
             ),
-          ),
-        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0)
+          ],
+        ),
+        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0) ...[
           const SizedBox(height: 12),
-        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0)
           _QuickCard(
             label: 'WhatsApp Junk',
             count: provider.whatsappGroup!.totalItems,
             icon: Icons.chat_bubble_outline_rounded,
-            color: const Color(0xFF25D366), // WhatsApp Green
+            color: const Color(0xFF25D366),
             onTap: () {
               provider.whatsappGroup!.recalculateCurrentIndex();
               Navigator.push(
@@ -250,19 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+        ],
         const SizedBox(height: 12),
-        _QuickCard(
-          label: 'Blurry Photos',
-          count: 0,
-          icon: Icons.blur_on_rounded,
-          color: Colors.orangeAccent,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
-          ),
-        ),
-        if (provider.similarPhotoGroups.isNotEmpty)
-          const SizedBox(height: 12),
         Builder(
           builder: (context) {
             final cards = <Widget>[
@@ -655,5 +663,6 @@ class _MonthsReviewedWidget extends StatelessWidget {
     );
   }
 }
+
 
 
