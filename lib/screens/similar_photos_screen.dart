@@ -247,7 +247,7 @@ class _PreviewDialogState extends State<_PreviewDialog> {
   @override
   void initState() {
     super.initState();
-    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.originBytes);
+    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
   }
 
   @override
