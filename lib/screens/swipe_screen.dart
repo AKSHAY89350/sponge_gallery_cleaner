@@ -571,7 +571,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
   // ────────────────────────────────────────────────────────────────────────
 
   Widget _buildGridView() {
-    final remainingItems = widget.group.items.skip(_currentIndex).toList();
+    final remainingItems = widget.group.items.where((i) => i.decision == null).toList();
     if (remainingItems.isEmpty) return const SizedBox.shrink();
 
     // Group by Date (Day)
@@ -1068,4 +1068,5 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
 
 
 }
+
 
