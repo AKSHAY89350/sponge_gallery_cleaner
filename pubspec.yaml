@@ -20,6 +20,7 @@ dependencies:
   vibration: ^3.2.1
   video_player: ^2.14.1
   disk_space_2: ^1.0.13
+  image: ^4.10.1
 
 dev_dependencies:
   flutter_test:

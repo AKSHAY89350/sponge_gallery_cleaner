@@ -4,6 +4,7 @@ import '../providers/gallery_provider.dart';
 import '../models/gallery_media_item.dart';
 import 'swipe_screen.dart';
 import 'staging_bin_screen.dart';
+import 'blurry_photos_screen.dart';
 import 'similar_photos_screen.dart';
 import 'large_files_menu_screen.dart';
 
@@ -249,6 +250,17 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
+        const SizedBox(height: 12),
+        _QuickCard(
+          label: 'Blurry Photos',
+          count: 0,
+          icon: Icons.blur_on_rounded,
+          color: Colors.orangeAccent,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
+          ),
+        ),
         if (provider.similarPhotoGroups.isNotEmpty)
           const SizedBox(height: 12),
         Builder(
