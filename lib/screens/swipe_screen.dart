@@ -60,9 +60,13 @@ class _SwipeScreenState extends State<SwipeScreen> {
 
   void _advance() {
     setState(() {
-      widget.group.currentIndex = _currentIndex + 1;
-      _currentIndex++;
       _dragOffset = Offset.zero;
+      _currentIndex++;
+      // Skip over items that already have a decision
+      while (_currentIndex < widget.group.items.length && widget.group.items[_currentIndex].decision != null) {
+        _currentIndex++;
+      }
+      widget.group.currentIndex = _currentIndex;
     });
     _scrollToCurrent();
   }
@@ -72,12 +76,15 @@ class _SwipeScreenState extends State<SwipeScreen> {
     HapticFeedback.selectionClick();
     final last = _undoStack.removeLast();
     context.read<GalleryProvider>().removeFromStagingBin(last);
+    
     setState(() {
-      if (_currentIndex > 0) {
-        _currentIndex--;
-        widget.group.currentIndex = _currentIndex;
+      final lastIndex = widget.group.items.indexWhere((i) => i.id == last.id);
+      if (lastIndex != -1) {
+        _currentIndex = lastIndex;
+        widget.group.currentIndex = lastIndex;
       }
     });
+    _scrollToCurrent();
   }
 
   
