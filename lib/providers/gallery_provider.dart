@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:disk_space_2/disk_space_2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/gallery_media_item.dart';
 import 'dart:math';
@@ -24,6 +25,18 @@ class GalleryProvider extends ChangeNotifier {
   bool isInitialized = false;
   bool isBackgroundLoading = false;
   int totalTrashedBytes = 0;
+
+  double? totalDiskSpaceMB;
+  double? freeDiskSpaceMB;
+  
+  Future<void> fetchDiskSpace() async {
+    try {
+      totalDiskSpaceMB = await DiskSpace.getTotalDiskSpace;
+      freeDiskSpaceMB = await DiskSpace.getFreeDiskSpace;
+      notifyListeners();
+    } catch (_) {}
+  }
+
 
   final List<GalleryMediaItem> _stagingBin = [];
   List<GalleryMediaItem> get stagingBin => List.unmodifiable(_stagingBin);
@@ -204,7 +217,9 @@ class GalleryProvider extends ChangeNotifier {
       }
       
       // Fetch sizes for initial items in background
+      // Fetch sizes for initial items in background
       _fetchSizesForInitialItems(_initialAssets);
+      fetchDiskSpace();
 
     } catch (e) {
       debugPrint('Error loading gallery: $e');
