@@ -28,6 +28,7 @@ class GalleryProvider extends ChangeNotifier {
 
   double? totalDiskSpaceMB;
   double? freeDiskSpaceMB;
+  List<GalleryMediaItem> allItems = [];
   
   List<List<GalleryMediaItem>> similarPhotoGroups = [];
   
@@ -94,7 +95,7 @@ class GalleryProvider extends ChangeNotifier {
       final Map<String, List<GalleryMediaItem>> byMonth = {};
       final List<GalleryMediaItem> screenshots = [];
       final List<GalleryMediaItem> largeFiles = [];
-      final List<GalleryMediaItem> allItems = [];
+      allItems = [];
 
       final prefs = await SharedPreferences.getInstance();
 

@@ -215,11 +215,24 @@ class _HomeScreenState extends State<HomeScreen> {
         // Quick Clean section
         const SizedBox(height: 8),
         const Text(
-          'Quick Clean',
+          'Smart AI Clean',
           style: TextStyle(
               color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
+        if (provider.similarPhotoGroups.isNotEmpty)
+          _QuickCard(
+            title: 'Similar & Burst Photos',
+            subtitle: '${provider.similarPhotoGroups.length} groups found',
+            icon: Icons.filter_none_rounded,
+            color: const Color(0xFFE83A59),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
+            ),
+          ),
+        if (provider.similarPhotoGroups.isNotEmpty)
+          const SizedBox(height: 12),
         Builder(
           builder: (context) {
             final cards = <Widget>[
@@ -612,4 +625,5 @@ class _MonthsReviewedWidget extends StatelessWidget {
     );
   }
 }
+
 
