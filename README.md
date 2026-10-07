@@ -15,6 +15,20 @@ Sponge Gallery Cleaner is a premium, beautifully designed Android application th
 
 Engineered for extreme performance, Sponge can handle galleries with 50,000+ items with **zero startup lag** and **zero frame drops**.
 
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/screen_1.jpeg" width="200" style="margin: 8px" />
+  <img src="docs/screenshots/screen_2.jpeg" width="200" style="margin: 8px" />
+  <img src="docs/screenshots/screen_3.jpeg" width="200" style="margin: 8px" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/screen_4.jpeg" width="200" style="margin: 8px" />
+  <img src="docs/screenshots/screen_5.jpeg" width="200" style="margin: 8px" />
+  <img src="docs/screenshots/screen_6.jpeg" width="200" style="margin: 8px" />
+</p>
+
 ## ✨ Key Features
 * **Lightning Fast:** Instant startup, regardless of how many photos you have.
 * **Month-by-Month Organization:** Automatically groups your media by month and year.
