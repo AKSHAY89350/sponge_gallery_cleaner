@@ -453,6 +453,12 @@ class GalleryProvider extends ChangeNotifier {
     _stagingBin.removeWhere((i) => i.id == item.id);
     totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
     _clearDecision(item.id);
+    
+    for (final g in monthGroups) { g.recalculateCurrentIndex(); }
+    screenshotsGroup?.recalculateCurrentIndex();
+    whatsappGroup?.recalculateCurrentIndex();
+    randomGroup?.recalculateCurrentIndex();
+    
     notifyListeners();
   }
 
@@ -560,3 +566,4 @@ class GalleryProvider extends ChangeNotifier {
     similarPhotoGroups = newGroups;
   }
 }
+
