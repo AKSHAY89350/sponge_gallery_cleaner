@@ -305,20 +305,7 @@ class _ThumbnailTile extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           // Thumbnail
-          FutureBuilder<Uint8List?>(
-            future: AssetEntity.fromId(item.id).then(
-              (entity) => entity?.thumbnailDataWithSize(
-                const ThumbnailSize.square(200),
-                quality: 80,
-              ),
-            ),
-            builder: (ctx, snap) {
-              if (snap.hasData && snap.data != null) {
-                return Image.memory(snap.data!, fit: BoxFit.cover);
-              }
-              return Container(color: const Color(0xFF252525));
-            },
-          ),
+          _StagingCachedThumbnail(item: item),
           // Red delete overlay
           Container(color: Colors.red.withValues(alpha: 0.25)),
           // Restore icon
@@ -336,6 +323,57 @@ class _ThumbnailTile extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _StagingCachedThumbnail extends StatefulWidget {
+  final GalleryMediaItem item;
+  const _StagingCachedThumbnail({required this.item});
+
+  @override
+  State<_StagingCachedThumbnail> createState() => _StagingCachedThumbnailState();
+}
+
+class _StagingCachedThumbnailState extends State<_StagingCachedThumbnail> {
+  Future<Uint8List?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StagingCachedThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _loadFuture();
+    }
+  }
+
+  void _loadFuture() {
+    _future = AssetEntity.fromId(widget.item.id).then(
+      (entity) => entity?.thumbnailDataWithSize(
+        const ThumbnailSize.square(200),
+        quality: 80,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _future,
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+           return Container(color: const Color(0xFF252525));
+        }
+        if (snap.hasData && snap.data != null) {
+          return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
+        }
+        return Container(color: const Color(0xFF252525));
+      },
     );
   }
 }
