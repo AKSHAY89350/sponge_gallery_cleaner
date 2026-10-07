@@ -29,6 +29,8 @@ class GalleryProvider extends ChangeNotifier {
   double? totalDiskSpaceMB;
   double? freeDiskSpaceMB;
   
+  List<List<GalleryMediaItem>> similarPhotoGroups = [];
+  
   Future<void> fetchDiskSpace() async {
     try {
       totalDiskSpaceMB = await DiskSpace.getTotalDiskSpace;
@@ -220,6 +222,7 @@ class GalleryProvider extends ChangeNotifier {
       // Fetch sizes for initial items in background
       _fetchSizesForInitialItems(_initialAssets);
       fetchDiskSpace();
+      _findSimilarPhotos();
 
     } catch (e) {
       debugPrint('Error loading gallery: $e');
@@ -390,10 +393,12 @@ class GalleryProvider extends ChangeNotifier {
       monthGroups.sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
       for (final g in monthGroups) g.recalculateCurrentIndex();
       totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
+      _findSimilarPhotos();
       notifyListeners();
     }
 
     isBackgroundLoading = false;
+    _findSimilarPhotos();
     notifyListeners();
   }
 
@@ -512,12 +517,39 @@ class GalleryProvider extends ChangeNotifier {
     }
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
+
+  void _findSimilarPhotos() {
+    final sortedItems = allItems.where((i) => !i.isVideo).toList()
+      ..sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
+      
+    List<List<GalleryMediaItem>> newGroups = [];
+    List<GalleryMediaItem> currentGroup = [];
+    
+    for (int i = 0; i < sortedItems.length - 1; i++) {
+      final current = sortedItems[i];
+      final next = sortedItems[i + 1];
+      
+      // If taken within 3 seconds of each other
+      final timeDiff = (current.dateTaken - next.dateTaken).abs();
+      
+      if (timeDiff <= 3000) {
+        if (currentGroup.isEmpty) currentGroup.add(current);
+        // Only add if not already in the group (prevent duplicates just in case)
+        if (!currentGroup.any((item) => item.id == next.id)) {
+           currentGroup.add(next);
+        }
+      } else {
+        if (currentGroup.length > 1) {
+          newGroups.add(List.from(currentGroup));
+        }
+        currentGroup.clear();
+      }
+    }
+    
+    if (currentGroup.length > 1) {
+      newGroups.add(List.from(currentGroup));
+    }
+    
+    similarPhotoGroups = newGroups;
+  }
 }
-
-
-
-
-
-
-
-

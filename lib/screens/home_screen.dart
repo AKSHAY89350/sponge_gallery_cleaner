@@ -4,6 +4,7 @@ import '../providers/gallery_provider.dart';
 import '../models/gallery_media_item.dart';
 import 'swipe_screen.dart';
 import 'staging_bin_screen.dart';
+import 'similar_photos_screen.dart';
 import 'large_files_menu_screen.dart';
 
 class HomeScreen extends StatefulWidget {
