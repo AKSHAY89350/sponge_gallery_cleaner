@@ -55,14 +55,8 @@ class GalleryProvider extends ChangeNotifier {
 
         for (final asset in assets) {
           int fileSizeBytes = 0;
-          String filePath = '';
-          try {
-            final originFile = await asset.originFile;
-            filePath = originFile?.path ?? '';
-            fileSizeBytes = originFile?.lengthSync() ?? 0;
-          } catch (_) {
-            // File might be restricted or deleted from storage
-          }
+          String filePath = asset.title ?? '';
+          // 🚀 SKIPPING await asset.file HERE FOR INSTANT STARTUP 🚀
 
           final item = GalleryMediaItem(
             id: asset.id,
