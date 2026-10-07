@@ -335,7 +335,8 @@ class GalleryProvider extends ChangeNotifier {
     isBackgroundLoading = true;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
     final Map<String, List<GalleryMediaItem>> byMonthLocal = {};
     
     // Process in chunks of 500 to keep UI extremely responsive
@@ -364,6 +365,7 @@ class GalleryProvider extends ChangeNotifier {
           mimeType: asset.mimeType,
         );
 
+        allItems.add(item);
         final savedDecision = prefs.getString('decision_${item.id}');
         if (savedDecision != null) {
           item.decision = SwipeAction.values.firstWhere(
@@ -402,10 +404,12 @@ class GalleryProvider extends ChangeNotifier {
       _findSimilarPhotos();
       notifyListeners();
     }
-
-    isBackgroundLoading = false;
+    
     _findSimilarPhotos();
-    notifyListeners();
+    } finally {
+      isBackgroundLoading = false;
+      notifyListeners();
+    }
   }
 
   void bulkAddToStagingBin(List<GalleryMediaItem> items) {
