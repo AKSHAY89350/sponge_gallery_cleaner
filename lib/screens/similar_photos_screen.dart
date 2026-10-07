@@ -115,7 +115,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () => _keepSelectedAndTrashRest(group),
-                    child: const Text('Keep & Trash Rest', style: TextStyle(fontSize: 12)),
+                    child: const Text('Keep', style: TextStyle(fontSize: 12)),
                   )
                 else
                   const Text('Select best ones', style: TextStyle(color: Colors.white54, fontSize: 12))
@@ -229,4 +229,5 @@ class _SimCachedThumbnailState extends State<_SimCachedThumbnail> {
     );
   }
 }
+
 
