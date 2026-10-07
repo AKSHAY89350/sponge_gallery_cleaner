@@ -8,6 +8,7 @@ import 'dart:math';
 class GalleryProvider extends ChangeNotifier {
   List<MonthGroup> monthGroups = [];
   MonthGroup? screenshotsGroup;
+  MonthGroup? whatsappGroup;
   MonthGroup? randomGroup;
   
   // Large Files Categories
@@ -94,6 +95,7 @@ class GalleryProvider extends ChangeNotifier {
 
       final Map<String, List<GalleryMediaItem>> byMonth = {};
       final List<GalleryMediaItem> screenshots = [];
+      final List<GalleryMediaItem> whatsappItems = [];
       final List<GalleryMediaItem> largeFiles = [];
       allItems = [];
 
@@ -150,6 +152,9 @@ class GalleryProvider extends ChangeNotifier {
           if (pathLower.contains('screenshot') ||
               pathLower.contains('screen_record')) {
             screenshots.add(item);
+          }
+          if (item.isWhatsApp) {
+            whatsappItems.add(item);
           }
 
 
@@ -475,6 +480,7 @@ class GalleryProvider extends ChangeNotifier {
       group.items.removeWhere((i) => deletedIds.contains(i.id));
     }
     screenshotsGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    whatsappGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
     
     randomGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
 

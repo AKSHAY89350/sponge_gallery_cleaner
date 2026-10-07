@@ -231,6 +231,24 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
             ),
           ),
+        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0)
+          const SizedBox(height: 12),
+        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0)
+          _QuickCard(
+            label: 'WhatsApp Junk',
+            count: provider.whatsappGroup!.totalItems,
+            icon: Icons.chat_bubble_outline_rounded,
+            color: const Color(0xFF25D366), // WhatsApp Green
+            onTap: () {
+              provider.whatsappGroup!.recalculateCurrentIndex();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SwipeScreen(group: provider.whatsappGroup!),
+                ),
+              );
+            },
+          ),
         if (provider.similarPhotoGroups.isNotEmpty)
           const SizedBox(height: 12),
         Builder(

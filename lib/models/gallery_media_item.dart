@@ -36,6 +36,11 @@ class GalleryMediaItem {
   }
 
   DateTime get dateTime => DateTime.fromMillisecondsSinceEpoch(dateTaken);
+
+  bool get isWhatsApp {
+    final lower = path.toLowerCase();
+    return lower.contains('whatsapp') || lower.contains('-wa');
+  }
 }
 
 class MonthGroup {
@@ -78,4 +83,5 @@ class MonthGroup {
       .where((i) => i.decision == SwipeAction.trash)
       .fold(0, (sum, i) => sum + i.fileSize);
 }
+
 
