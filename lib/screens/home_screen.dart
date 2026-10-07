@@ -222,44 +222,51 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         Row(
-          children: [
-            if (provider.similarPhotoGroups.isNotEmpty) ...[
+            children: [
               Expanded(
                 child: _QuickCard(
                   label: 'Similar\nPhotos',
                   count: provider.similarPhotoGroups.length,
                   icon: Icons.filter_none_rounded,
                   color: const Color(0xFFE83A59),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
-                  ),
+                  onTap: () {
+                    if (provider.similarPhotoGroups.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No similar photos found!')));
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: _QuickCard(
-                label: 'Blurry\nPhotos',
-                count: 0,
-                icon: Icons.blur_on_rounded,
-                color: Colors.orangeAccent,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
+              Expanded(
+                child: _QuickCard(
+                  label: 'Blurry\nPhotos',
+                  count: 0,
+                  icon: Icons.blur_on_rounded,
+                  color: Colors.orangeAccent,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        if (provider.whatsappGroup != null && provider.whatsappGroup!.totalItems > 0) ...[
+            ],
+          ),
           const SizedBox(height: 12),
           _QuickCard(
             label: 'WhatsApp Junk',
-            count: provider.whatsappGroup!.totalItems,
+            count: provider.whatsappGroup?.totalItems ?? 0,
             icon: Icons.chat_bubble_outline_rounded,
             color: const Color(0xFF25D366),
             onTap: () {
+              if (provider.whatsappGroup == null || provider.whatsappGroup!.totalItems == 0) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No WhatsApp junk found!')));
+                return;
+              }
               provider.whatsappGroup!.recalculateCurrentIndex();
               Navigator.push(
                 context,
@@ -269,8 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-        ],
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
         Builder(
           builder: (context) {
             final cards = <Widget>[
