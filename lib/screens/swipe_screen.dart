@@ -205,7 +205,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
   Widget _buildProgressBar() {
     final progress = widget.group.totalItems == 0
         ? 0.0
-        : _currentIndex / widget.group.totalItems;
+        : widget.group.progressPercent;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: ClipRRect(
@@ -1068,5 +1068,6 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
 
 
 }
+
 
 
