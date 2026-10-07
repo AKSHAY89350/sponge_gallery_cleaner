@@ -59,7 +59,7 @@ Sponge is built with a bank-grade security mindset:
 
 ## 📦 Download Latest Build
 You can download the latest production-ready APK directly from this repository.
-* **Location:** `releases/app-release.apk`
+* **Direct Download:** [Download app-release.apk](https://github.com/AKSHAY89350/sponge_gallery_cleaner/raw/master/releases/app-release.apk)
 * **Installation:** Transfer the APK to your Android device, open it, and select "Install". (You may need to allow "Install from Unknown Sources" in your phone settings).
 
 ---
