@@ -116,7 +116,7 @@ class GalleryProvider extends ChangeNotifier {
           label: label,
           yearMonthKey: entry.key,
           items: entry.value,
-        );
+        )..recalculateCurrentIndex();
       }).toList()
         ..sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
 
@@ -126,7 +126,7 @@ class GalleryProvider extends ChangeNotifier {
           yearMonthKey: 'screenshots',
           items: screenshots,
           isScreenshots: true,
-        );
+        )..recalculateCurrentIndex();
       }
 
       if (largeFiles.isNotEmpty) {
@@ -135,7 +135,7 @@ class GalleryProvider extends ChangeNotifier {
           yearMonthKey: 'large',
           items: largeFiles,
           isLargeFiles: true,
-        );
+        )..recalculateCurrentIndex();
       }
 
       // Random group - pick 20 random items
@@ -146,7 +146,7 @@ class GalleryProvider extends ChangeNotifier {
           label: 'Random Clean',
           yearMonthKey: 'random',
           items: randomItems.take(20).toList(),
-        );
+        )..recalculateCurrentIndex();
       }
 
       // Recalculate trashed bytes
@@ -242,6 +242,7 @@ class GalleryProvider extends ChangeNotifier {
          screenshotsGroup!.items.addAll(newScreenshots);
       }
       screenshotsGroup!.items.sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
+      screenshotsGroup!.recalculateCurrentIndex();
       totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
       notifyListeners();
     }
@@ -314,6 +315,7 @@ class GalleryProvider extends ChangeNotifier {
       }
       
       monthGroups.sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
+      for (final g in monthGroups) g.recalculateCurrentIndex();
       totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
       notifyListeners();
     }

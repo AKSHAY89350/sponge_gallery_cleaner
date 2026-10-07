@@ -56,6 +56,16 @@ class MonthGroup {
   });
 
   int get totalItems => items.length;
+  void recalculateCurrentIndex() {
+    final idx = items.indexWhere((i) => i.decision == null);
+    if (idx != -1) {
+      currentIndex = idx;
+    } else if (items.isNotEmpty) {
+      currentIndex = items.length;
+    } else {
+      currentIndex = 0;
+    }
+  }
   int get trashedCount =>
       items.where((i) => i.decision == SwipeAction.trash).length;
   int get keptCount =>
@@ -68,3 +78,4 @@ class MonthGroup {
       .where((i) => i.decision == SwipeAction.trash)
       .fold(0, (sum, i) => sum + i.fileSize);
 }
+
