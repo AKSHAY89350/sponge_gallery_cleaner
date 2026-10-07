@@ -14,10 +14,11 @@ class GalleryProvider extends ChangeNotifier {
   MonthGroup? largeFiles100To500;
   MonthGroup? largeFiles500To1GB;
   MonthGroup? largeFilesOver1GB;
-  int get totalLargeFilesCount => (largeFiles10To100?.items.length ?? 0) + 
-                                  (largeFiles100To500?.items.length ?? 0) + 
-                                  (largeFiles500To1GB?.items.length ?? 0) + 
-                                  (largeFilesOver1GB?.items.length ?? 0);
+  int get totalLargeFilesCount => 
+      (largeFiles10To100?.items.where((i) => i.decision == null).length ?? 0) + 
+      (largeFiles100To500?.items.where((i) => i.decision == null).length ?? 0) + 
+      (largeFiles500To1GB?.items.where((i) => i.decision == null).length ?? 0) + 
+      (largeFilesOver1GB?.items.where((i) => i.decision == null).length ?? 0);
 
   bool isLoading = false;
   bool isInitialized = false;
@@ -498,6 +499,7 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
 
 
 
