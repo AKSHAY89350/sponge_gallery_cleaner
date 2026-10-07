@@ -287,7 +287,20 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...(() {
              if (_showAllMonths) {
-               return provider.monthGroups.map((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
+               final cards = provider.monthGroups.map<Widget>((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
+               cards.add(
+                 Padding(
+                   padding: const EdgeInsets.only(top: 8.0, bottom: 20),
+                   child: TextButton(
+                     onPressed: () => setState(() => _showAllMonths = false),
+                     style: TextButton.styleFrom(
+                       foregroundColor: const Color(0xFF6C63FF),
+                     ),
+                     child: const Text('Hide Months', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                   ),
+                 )
+               );
+               return cards;
              } else {
                final visibleGroups = <MonthGroup>[];
                if (provider.monthGroups.isNotEmpty) {
