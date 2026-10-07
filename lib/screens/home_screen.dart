@@ -222,8 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         if (provider.similarPhotoGroups.isNotEmpty)
           _QuickCard(
-            title: 'Similar & Burst Photos',
-            subtitle: '${provider.similarPhotoGroups.length} groups found',
+            label: 'Similar Photos',
+            count: provider.similarPhotoGroups.length,
             icon: Icons.filter_none_rounded,
             color: const Color(0xFFE83A59),
             onTap: () => Navigator.push(

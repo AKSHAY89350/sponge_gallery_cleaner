@@ -13,45 +13,40 @@ class SimilarPhotosScreen extends StatefulWidget {
 }
 
 class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
-  final Set<String> _selectedIds = {};
+  // Holds the IDs of photos the user wants to KEEP
+  final Set<String> _selectedToKeepIds = {};
 
-  void _trashSelected() {
-    if (_selectedIds.isEmpty) return;
+  void _keepSelectedAndTrashRest(List<GalleryMediaItem> group) {
     final provider = context.read<GalleryProvider>();
-    final itemsToTrash = provider.allItems
-        .where((i) => _selectedIds.contains(i.id))
-        .toList();
     
-    provider.bulkAddToStagingBin(itemsToTrash);
+    final itemsToKeep = <GalleryMediaItem>[];
+    final itemsToTrash = <GalleryMediaItem>[];
+    
+    for (final item in group) {
+      if (_selectedToKeepIds.contains(item.id)) {
+        itemsToKeep.add(item);
+      } else {
+        itemsToTrash.add(item);
+      }
+    }
+    
+    if (itemsToKeep.isNotEmpty) {
+      provider.bulkKeepItems(itemsToKeep);
+    }
+    if (itemsToTrash.isNotEmpty) {
+      provider.bulkAddToStagingBin(itemsToTrash);
+    }
+    
     setState(() {
-      _selectedIds.clear();
+      for (final item in group) {
+        _selectedToKeepIds.remove(item.id);
+      }
     });
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${itemsToTrash.length} items moved to Staging Bin'),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _keepSelected() {
-    if (_selectedIds.isEmpty) return;
-    final provider = context.read<GalleryProvider>();
-    final itemsToKeep = provider.allItems
-        .where((i) => _selectedIds.contains(i.id))
-        .toList();
-    
-    provider.bulkKeepItems(itemsToKeep);
-    setState(() {
-      _selectedIds.clear();
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${itemsToKeep.length} items kept'),
-        backgroundColor: Colors.green,
+        content: Text('Kept ${itemsToKeep.length} photos, Trashed ${itemsToTrash.length}.'),
+        backgroundColor: Colors.blueAccent,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -82,57 +77,12 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               ),
             )
           : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               itemCount: liveGroups.length,
               itemBuilder: (ctx, index) {
                 final group = liveGroups[index];
                 return _buildSimilarGroup(group);
               },
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _selectedIds.isEmpty
-          ? null
-          : Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 10, offset: const Offset(0, 5))
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_selectedIds.length} Selected',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(width: 20),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    onPressed: _trashSelected,
-                    child: const Text('Trash', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    onPressed: _keepSelected,
-                    child: const Text('Keep', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
             ),
     );
   }
@@ -157,19 +107,18 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                   '${group.length} Similar Photos',
                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                TextButton(
-                  onPressed: () {
-                    // Auto-select all but first
-                    setState(() {
-                      for (int i = 1; i < group.length; i++) {
-                        _selectedIds.add(group[i].id);
-                      }
-                      // Deselect first just in case
-                      _selectedIds.remove(group[0].id);
-                    });
-                  },
-                  child: const Text('Keep Best Only', style: TextStyle(color: Color(0xFF6C63FF))),
-                )
+                if (_selectedToKeepIds.intersection(group.map((e) => e.id).toSet()).isNotEmpty)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _keepSelectedAndTrashRest(group),
+                    child: const Text('Keep & Trash Rest', style: TextStyle(fontSize: 12)),
+                  )
+                else
+                  const Text('Select best ones', style: TextStyle(color: Colors.white54, fontSize: 12))
               ],
             ),
           ),
@@ -181,14 +130,14 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               itemCount: group.length,
               itemBuilder: (ctx, i) {
                 final item = group[i];
-                final isSelected = _selectedIds.contains(item.id);
+                final isSelected = _selectedToKeepIds.contains(item.id);
                 return GestureDetector(
                   onTap: () {
                     setState(() {
                       if (isSelected) {
-                        _selectedIds.remove(item.id);
+                        _selectedToKeepIds.remove(item.id);
                       } else {
-                        _selectedIds.add(item.id);
+                        _selectedToKeepIds.add(item.id);
                       }
                     });
                   },
@@ -198,7 +147,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? Colors.red : Colors.transparent,
+                        color: isSelected ? Colors.green : Colors.transparent,
                         width: 3,
                       ),
                     ),
@@ -209,10 +158,10 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                         children: [
                           _SimCachedThumbnail(item: item),
                           if (isSelected)
-                            Container(color: Colors.red.withValues(alpha: 0.2)),
+                            Container(color: Colors.green.withValues(alpha: 0.2)),
                           if (isSelected)
                             const Center(
-                              child: Icon(Icons.delete_rounded, color: Colors.white, size: 32),
+                              child: Icon(Icons.check_circle_rounded, color: Colors.white, size: 32),
                             ),
                         ],
                       ),
@@ -222,6 +171,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               },
             ),
           ),
+          
           const SizedBox(height: 16),
         ],
       ),
@@ -279,3 +229,4 @@ class _SimCachedThumbnailState extends State<_SimCachedThumbnail> {
     );
   }
 }
+
