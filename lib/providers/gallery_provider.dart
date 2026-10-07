@@ -319,8 +319,7 @@ class GalleryProvider extends ChangeNotifier {
     for (int i = start; i < end; i += chunkSize) {
       final currentEnd = (i + chunkSize).clamp(start, end);
       final assets = await album.getAssetListRange(start: i, end: currentEnd);
-      
-      for (final asset in _initialAssets) {
+      for (final asset in assets) {
         int fileSizeBytes = 0;
         String filePath = '';
         try {
@@ -499,6 +498,7 @@ class GalleryProvider extends ChangeNotifier {
     return '${(totalTrashedBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
+
 
 
 
