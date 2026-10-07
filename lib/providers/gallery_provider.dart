@@ -324,6 +324,28 @@ class GalleryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void bulkAddToStagingBin(List<GalleryMediaItem> items) {
+    for (final item in items) {
+      item.decision = SwipeAction.trash;
+      if (!_stagingBin.any((i) => i.id == item.id)) {
+        _stagingBin.add(item);
+      }
+      _saveDecision(item.id, SwipeAction.trash);
+    }
+    totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
+    notifyListeners();
+  }
+
+  void bulkKeepItems(List<GalleryMediaItem> items) {
+    for (final item in items) {
+      item.decision = SwipeAction.keep;
+      _stagingBin.removeWhere((i) => i.id == item.id);
+      _saveDecision(item.id, SwipeAction.keep);
+    }
+    totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
+    notifyListeners();
+  }
+
   void addToStagingBin(GalleryMediaItem item) {
     item.decision = SwipeAction.trash;
     if (!_stagingBin.any((i) => i.id == item.id)) {
