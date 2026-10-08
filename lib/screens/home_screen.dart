@@ -430,6 +430,7 @@ class _QuickCard extends StatelessWidget {
   final int count;
   final Color color;
   final VoidCallback onTap;
+  final double? progress;
 
   const _QuickCard({
     required this.icon,
@@ -437,6 +438,7 @@ class _QuickCard extends StatelessWidget {
     required this.count,
     required this.color,
     required this.onTap,
+    this.progress,
   });
 
   @override
