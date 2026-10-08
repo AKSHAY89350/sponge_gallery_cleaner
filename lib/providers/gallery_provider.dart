@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/blur_detector.dart';
 import '../models/gallery_media_item.dart';
 import 'dart:math';
 
@@ -10,6 +11,11 @@ class GalleryProvider extends ChangeNotifier {
   MonthGroup? screenshotsGroup;
   MonthGroup? whatsappGroup;
   MonthGroup? randomGroup;
+  MonthGroup? blurryGroup;
+  
+  bool isBlurryScanning = false;
+  int blurryScannedCount = 0;
+  int blurryTotalCount = 0;
   
   // Large Files Categories
   MonthGroup? largeFiles10To100;
@@ -470,6 +476,62 @@ class GalleryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> scanMoreBlurry() async {
+    await _scanBlurryQueue(1000);
+  }
+  
+  Future<void> _scanBlurryQueue(int limit) async {
+    if (isBlurryScanning) return;
+    isBlurryScanning = true;
+    notifyListeners();
+    
+    try {
+      final unscanned = allItems.where((i) => i.isBlurry == null && !i.isVideo).take(limit).toList();
+      blurryTotalCount += unscanned.length;
+      notifyListeners();
+      
+      final newBlurries = <GalleryMediaItem>[];
+      
+      for (final item in unscanned) {
+        try {
+          
+          // Wait, PhotoManager doesn't have assetEntity directly easily? AssetEntity.fromId
+          final assetEntity = await AssetEntity.fromId(item.id);
+          final data = await assetEntity?.thumbnailDataWithSize(const ThumbnailSize.square(512));
+          if (data != null) {
+            final isB = await BlurDetector.isImageBlurry(data);
+            item.isBlurry = isB;
+            if (isB) {
+              newBlurries.add(item);
+            }
+          } else {
+            item.isBlurry = false;
+          }
+        } catch (e) {
+          item.isBlurry = false;
+        }
+        blurryScannedCount++;
+        if (blurryScannedCount % 10 == 0) notifyListeners();
+      }
+      
+      if (newBlurries.isNotEmpty) {
+        if (blurryGroup == null) {
+          blurryGroup = MonthGroup(
+            label: 'Blurry Photos',
+            yearMonthKey: 'blurry',
+            items: newBlurries,
+          )..recalculateCurrentIndex();
+        } else {
+          blurryGroup!.items.addAll(newBlurries);
+          blurryGroup!.recalculateCurrentIndex();
+        }
+      }
+    } finally {
+      isBlurryScanning = false;
+      notifyListeners();
+    }
+  }
+
   Future<int> permanentlyDeleteStaged() async {
     final ids = _stagingBin.map((i) => i.id).toList();
     if (ids.isEmpty) return 0;
@@ -574,6 +636,9 @@ class GalleryProvider extends ChangeNotifier {
     similarPhotoGroups = newGroups;
   }
 }
+
+
+
 
 
 

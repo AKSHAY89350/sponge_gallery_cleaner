@@ -13,6 +13,7 @@ class GalleryMediaItem {
 
   SwipeAction? decision;
   String? targetAlbumId;
+  bool? isBlurry;
 
   GalleryMediaItem({
     required this.id,
@@ -26,6 +27,7 @@ class GalleryMediaItem {
     this.mimeType,
     this.decision,
     this.targetAlbumId,
+    this.isBlurry,
   });
 
   String get formattedSize {
@@ -83,5 +85,7 @@ class MonthGroup {
       .where((i) => i.decision == SwipeAction.trash)
       .fold(0, (sum, i) => sum + i.fileSize);
 }
+
+
 
 

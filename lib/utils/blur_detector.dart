@@ -1,70 +1,61 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 class BlurDetector {
   static Future<bool> isImageBlurry(Uint8List bytes) async {
-    return compute(_calculateBlur, bytes);
+    return compute(_calculateBlurOptionB, bytes);
   }
 
-  static bool _calculateBlur(Uint8List bytes) {
+  // OPTION B: High Precision Laplacian Variance Algorithm
+  static bool _calculateBlurOptionB(Uint8List bytes) {
     try {
       final image = img.decodeImage(bytes);
       if (image == null) return false;
 
-      // Resize for performance
-      final small = img.copyResize(image, width: 256);
+      // In Option B, we use a much higher resolution (512x512) for precision
+      // instead of 256. This takes ~4x more CPU and RAM.
+      final resize = img.copyResize(image, width: 512);
       
-      // Convert to grayscale
-      final grayscale = img.grayscale(small);
-
-      // Simple laplacian variance
-      // Since convolution might be slow or API might differ in image package,
-      // we can do manual laplacian calculation.
+      // Strict luminance calculation (High fidelity grayscale)
+      final width = resize.width;
+      final height = resize.height;
+      final gray = List<double>.filled(width * height, 0.0);
       
-      double sum = 0;
+      int idx = 0;
+      for (final p in resize) {
+        // Rec. 709 luma coefficients
+        gray[idx++] = (p.r * 0.2126 + p.g * 0.7152 + p.b * 0.0722).toDouble();
+      }
+      
+      // 3x3 Laplacian Convolution Kernel
+      double sumLaplacian = 0.0;
+      double sumLaplacianSq = 0.0;
       int count = 0;
-      final width = grayscale.width;
-      final height = grayscale.height;
 
-      // Calculate laplacian and mean
       for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
-          final top = grayscale.getPixel(x, y - 1).r;
-          final bottom = grayscale.getPixel(x, y + 1).r;
-          final left = grayscale.getPixel(x - 1, y).r;
-          final right = grayscale.getPixel(x + 1, y).r;
-          final center = grayscale.getPixel(x, y).r;
+          final center = gray[y * width + x];
+          final top = gray[(y - 1) * width + x];
+          final bottom = gray[(y + 1) * width + x];
+          final left = gray[y * width + (x - 1)];
+          final right = gray[y * width + (x + 1)];
 
-          // Laplacian = top + bottom + left + right - 4 * center
-          final laplacian = (top + bottom + left + right - 4 * center).abs();
+          final lap = top + bottom + left + right - (4 * center);
           
-          sum += laplacian;
+          sumLaplacian += lap;
+          sumLaplacianSq += lap * lap;
           count++;
         }
       }
 
-      final mean = sum / count;
+      if (count == 0) return false;
 
-      // Calculate variance
-      double varianceSum = 0;
-      for (int y = 1; y < height - 1; y++) {
-        for (int x = 1; x < width - 1; x++) {
-          final top = grayscale.getPixel(x, y - 1).r;
-          final bottom = grayscale.getPixel(x, y + 1).r;
-          final left = grayscale.getPixel(x - 1, y).r;
-          final right = grayscale.getPixel(x + 1, y).r;
-          final center = grayscale.getPixel(x, y).r;
-
-          final laplacian = (top + bottom + left + right - 4 * center).abs();
-          varianceSum += (laplacian - mean) * (laplacian - mean);
-        }
-      }
-
-      final variance = varianceSum / count;
-
-      // Threshold: if variance is very low, it lacks edges -> blurry
-      return variance < 100.0;
+      final mean = sumLaplacian / count;
+      final variance = (sumLaplacianSq / count) - (mean * mean);
+      
+      // High precision threshold (adjustable).
+      // Higher variance = sharper image. Lower variance = blurry.
+      return variance < 80.0; 
     } catch (e) {
       return false;
     }
