@@ -151,7 +151,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   fontSize: 16,
                   fontWeight: FontWeight.w600)),
           Text(
-            '$_currentIndex / ${widget.group.totalItems}',
+            '${widget.group.trashedCount + widget.group.keptCount} / ${widget.group.totalItems}',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
