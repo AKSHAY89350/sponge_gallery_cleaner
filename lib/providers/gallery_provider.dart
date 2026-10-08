@@ -17,6 +17,8 @@ class GalleryProvider extends ChangeNotifier {
   int blurryScannedCount = 0;
   int blurryTotalCount = 0;
   
+  bool get hasUnscannedBlurry => allItems.any((i) => i.isBlurry == null && !i.isVideo);
+  
   // Large Files Categories
   MonthGroup? largeFiles10To100;
   MonthGroup? largeFiles100To500;
@@ -636,6 +638,7 @@ class GalleryProvider extends ChangeNotifier {
     similarPhotoGroups = newGroups;
   }
 }
+
 
 
 
