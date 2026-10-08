@@ -230,6 +230,14 @@ class GalleryProvider extends ChangeNotifier {
         )..recalculateCurrentIndex();
       }
 
+      if (whatsappItems.isNotEmpty) {
+        whatsappGroup = MonthGroup(
+          label: 'WhatsApp Junk',
+          yearMonthKey: 'whatsapp',
+          items: whatsappItems,
+        )..recalculateCurrentIndex();
+      }
+
       // Random group - pick 20 random items
       if (allItems.length > 5) {
         final rng = Random();
@@ -475,6 +483,18 @@ class GalleryProvider extends ChangeNotifier {
 
           if (item.fileSize > 10 * 1024 * 1024) {
             largeFiles10To100?.items.add(item);
+          }
+
+          if (item.isWhatsApp) {
+            if (whatsappGroup == null) {
+              whatsappGroup = MonthGroup(
+                label: 'WhatsApp Junk',
+                yearMonthKey: 'whatsapp',
+                items: [item],
+              );
+            } else if (!whatsappGroup!.items.any((i) => i.id == item.id)) {
+              whatsappGroup!.items.add(item);
+            }
           }
         }
 
