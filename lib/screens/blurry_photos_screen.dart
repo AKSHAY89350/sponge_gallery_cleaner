@@ -91,18 +91,41 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
         ],
       ),
       floatingActionButton: _selectedIds.isNotEmpty 
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                HapticFeedback.heavyImpact();
-                final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
-                provider.bulkAddToStagingBin(itemsToTrash);
-                setState(() {
-                  _selectedIds.clear();
-                });
-              },
-              backgroundColor: Colors.redAccent,
-              icon: const Icon(Icons.delete_rounded, color: Colors.white),
-              label: Text('Trash Selected (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  FloatingActionButton.extended(
+                    heroTag: 'keep_btn',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      final itemsToKeep = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                      provider.bulkKeepItems(itemsToKeep);
+                      setState(() {
+                        _selectedIds.clear();
+                      });
+                    },
+                    backgroundColor: Colors.green,
+                    icon: const Icon(Icons.favorite_rounded, color: Colors.white),
+                    label: Text('Keep (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                  FloatingActionButton.extended(
+                    heroTag: 'trash_btn',
+                    onPressed: () {
+                      HapticFeedback.heavyImpact();
+                      final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                      provider.bulkAddToStagingBin(itemsToTrash);
+                      setState(() {
+                        _selectedIds.clear();
+                      });
+                    },
+                    backgroundColor: Colors.redAccent,
+                    icon: const Icon(Icons.delete_rounded, color: Colors.white),
+                    label: Text('Trash (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
             )
           : (blurryItems.isNotEmpty && !isScanning
               ? FloatingActionButton.extended(

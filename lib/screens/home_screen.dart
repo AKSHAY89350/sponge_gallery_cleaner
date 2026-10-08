@@ -245,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: _QuickCard(
                   label: 'Blurry\nPhotos',
-                  count: 0,
+                  count: provider.blurryGroup?.items.where((i) => i.decision == null).length ?? 0,
                   icon: Icons.blur_on_rounded,
                   color: Colors.orangeAccent,
                   onTap: () => Navigator.push(
@@ -671,6 +671,7 @@ class _MonthsReviewedWidget extends StatelessWidget {
     );
   }
 }
+
 
 
 
