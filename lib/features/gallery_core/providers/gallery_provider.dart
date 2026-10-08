@@ -482,7 +482,7 @@ class GalleryProvider extends ChangeNotifier {
           }
 
           if (item.fileSize > 10 * 1024 * 1024) {
-            largeFiles10To100?.items.add(item);
+            _categorizeLargeFile(item);
           }
 
           if (item.isWhatsApp) {
