@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _QuickCard(
                 label: 'Similar\nPhotos',
-                count: provider.similarPhotoGroups.length,
+                count: provider.similarPhotoGroups.map((g) => g.where((i) => i.decision == null).toList()).where((g) => g.length > 1).length,
                 icon: Icons.filter_none_rounded,
                 color: const Color(0xFFE83A59),
                 onTap: () {
@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         _QuickCard(
           label: 'WhatsApp Junk',
-          count: provider.whatsappGroup?.totalItems ?? 0,
+          count: provider.whatsappGroup?.items.where((i) => i.decision == null).length ?? 0,
           icon: Icons.chat_bubble_outline_rounded,
           color: const Color(0xFF25D366),
           onTap: () {
@@ -341,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _QuickCard(
                     icon: Icons.shuffle_rounded,
                     label: 'Random\nClean',
-                    count: provider.randomGroup!.totalItems,
+                    count: provider.randomGroup!.items.where((i) => i.decision == null).length,
                     color: const Color(0xFF10B981),
                     onTap: () => _openGroup(context, provider.randomGroup!),
                   ),
@@ -351,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _QuickCard(
                     icon: Icons.screenshot_rounded,
                     label: 'Screenshots',
-                    count: provider.screenshotsGroup!.totalItems,
+                    count: provider.screenshotsGroup!.items.where((i) => i.decision == null).length,
                     color: const Color(0xFFF59E0B),
                     onTap: () =>
                         _openGroup(context, provider.screenshotsGroup!),
@@ -500,16 +500,13 @@ class _QuickCard extends StatelessWidget {
   final int count;
   final Color color;
   final VoidCallback onTap;
-  final double? progress;
-
   const _QuickCard({
     required this.icon,
     required this.label,
     required this.count,
     required this.color,
     required this.onTap,
-    this.progress,
-  });
+    });
 
   @override
   Widget build(BuildContext context) {
