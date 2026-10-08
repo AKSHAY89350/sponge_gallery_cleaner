@@ -20,6 +20,23 @@ class GalleryProvider extends ChangeNotifier {
   bool get hasUnscannedBlurry =>
       allItems.any((i) => i.isBlurry == null && !i.isVideo);
 
+  void refreshRandomGroup() {
+    if (allItems.length > 5) {
+      final rng = Random();
+      // Filter out items that already have a decision
+      final availableItems = allItems.where((i) => i.decision == null).toList();
+      if (availableItems.isNotEmpty) {
+        availableItems.shuffle(rng);
+        randomGroup = MonthGroup(
+          label: 'Random Clean',
+          yearMonthKey: 'random',
+          items: availableItems.take(20).toList(),
+        )..recalculateCurrentIndex();
+        notifyListeners();
+      }
+    }
+  }
+
   // Large Files Categories
   MonthGroup? largeFiles10To100;
   MonthGroup? largeFiles100To500;
