@@ -89,22 +89,22 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           ),
         ],
       ),
-      floatingActionButton: blurryItems.isNotEmpty && !isScanning
-          ? (_selectedIds.isNotEmpty 
+      floatingActionButton: _selectedIds.isNotEmpty 
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                HapticFeedback.heavyImpact();
+                final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                provider.bulkAddToStagingBin(itemsToTrash);
+                setState(() {
+                  _selectedIds.clear();
+                });
+              },
+              backgroundColor: Colors.redAccent,
+              icon: const Icon(Icons.delete_rounded, color: Colors.white),
+              label: Text('Trash Selected (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            )
+          : (blurryItems.isNotEmpty && !isScanning
               ? FloatingActionButton.extended(
-                  onPressed: () {
-                    HapticFeedback.heavyImpact();
-                    final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
-                    provider.bulkAddToStagingBin(itemsToTrash);
-                    setState(() {
-                      _selectedIds.clear();
-                    });
-                  },
-                  backgroundColor: Colors.redAccent,
-                  icon: const Icon(Icons.delete_rounded, color: Colors.white),
-                  label: Text('Trash Selected (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                )
-              : FloatingActionButton.extended(
                   onPressed: () {
                     group!.recalculateCurrentIndex();
                     Navigator.push(context, MaterialPageRoute(builder: (_) => SwipeScreen(group: group)));
@@ -112,8 +112,8 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
                   backgroundColor: Colors.orangeAccent,
                   icon: const Icon(Icons.cleaning_services_rounded, color: Colors.black),
                   label: const Text('Review Blurry Photos', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                ))
-          : null,
+                )
+              : null),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
@@ -208,7 +208,22 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final item = items[i];
-        return _BlurryGridThumbnail(item: item);
+        final isSelected = _selectedIds.contains(item.id);
+        return _BlurryGridThumbnail(
+          item: item, 
+          allItems: items, 
+          index: i,
+          isSelected: isSelected,
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedIds.remove(item.id);
+              } else {
+                _selectedIds.add(item.id);
+              }
+            });
+          },
+        );
       },
     );
   }
@@ -218,7 +233,11 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
 
 class _BlurryGridThumbnail extends StatefulWidget {
   final GalleryMediaItem item;
-  const _BlurryGridThumbnail({required this.item});
+  final List<GalleryMediaItem> allItems;
+  final int index;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _BlurryGridThumbnail({super.key, required this.item, required this.allItems, required this.index, required this.isSelected, required this.onTap});
 
   @override
   State<_BlurryGridThumbnail> createState() => _BlurryGridThumbnailState();
@@ -244,14 +263,31 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (_thumbFuture == null)
-            Container(color: const Color(0xFF252525))
-          else
+    return GestureDetector(
+      onLongPress: () {
+        HapticFeedback.heavyImpact();
+        showDialog(
+          context: context,
+          barrierColor: Colors.black.withValues(alpha: 0.9),
+          builder: (_) => _PreviewDialog(items: widget.allItems, initialIndex: widget.index),
+        );
+      },
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: widget.isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
+            width: 3,
+          ),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
             FutureBuilder<Uint8List?>(
               future: _thumbFuture,
               builder: (ctx, snap) {
@@ -264,36 +300,50 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
                 return Container(color: const Color(0xFF252525));
               },
             ),
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-              child: const Text('Blurry', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                child: const Text('Blurry', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
             ),
-          ),
-        ],
+            if (widget.isSelected)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF6C63FF), size: 24),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _PreviewDialog extends StatefulWidget {
-  final GalleryMediaItem item;
-  const _PreviewDialog({required this.item});
+  final List<GalleryMediaItem> items;
+  final int initialIndex;
+  const _PreviewDialog({required this.items, required this.initialIndex});
 
   @override
   State<_PreviewDialog> createState() => _PreviewDialogState();
 }
 
 class _PreviewDialogState extends State<_PreviewDialog> {
-  Future<Uint8List?>? _future;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+  
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -304,24 +354,12 @@ class _PreviewDialogState extends State<_PreviewDialog> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: FutureBuilder<Uint8List?>(
-                future: _future,
-                builder: (ctx, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.white));
-                  }
-                  if (snap.hasData && snap.data != null) {
-                    return Image.memory(snap.data!, fit: BoxFit.contain);
-                  }
-                  return const Center(child: Icon(Icons.error, color: Colors.white));
-                },
-              ),
-            ),
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.items.length,
+            itemBuilder: (ctx, index) {
+              return _PreviewPage(item: widget.items[index]);
+            },
           ),
           Positioned(
             top: 40,
@@ -337,5 +375,41 @@ class _PreviewDialogState extends State<_PreviewDialog> {
   }
 }
 
+class _PreviewPage extends StatefulWidget {
+  final GalleryMediaItem item;
+  const _PreviewPage({required this.item});
+  @override
+  State<_PreviewPage> createState() => _PreviewPageState();
+}
 
+class _PreviewPageState extends State<_PreviewPage> {
+  Future<Uint8List?>? _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
+  }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: InteractiveViewer(
+        minScale: 1.0,
+        maxScale: 4.0,
+        child: FutureBuilder<Uint8List?>(
+          future: _future,
+          builder: (ctx, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.white));
+            }
+            if (snap.hasData && snap.data != null) {
+              return Image.memory(snap.data!, fit: BoxFit.contain);
+            }
+            return const Center(child: Icon(Icons.error, color: Colors.white));
+          },
+        ),
+      ),
+    );
+  }
+}
 
