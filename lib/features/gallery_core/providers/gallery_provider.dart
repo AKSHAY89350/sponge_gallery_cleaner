@@ -126,7 +126,7 @@ class GalleryProvider extends ChangeNotifier {
 
         for (final asset in _initialAssets) {
           int fileSizeBytes = 0;
-          String filePath = asset.title ?? '';
+          String filePath = "${asset.relativePath ?? ''}/${asset.title ?? ''}";
           // 🚀 SKIPPING await asset.file HERE FOR INSTANT STARTUP 🚀
 
           final item = GalleryMediaItem(
