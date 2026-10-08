@@ -343,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Random\nClean',
                     count: provider.randomGroup!.items.where((i) => i.decision == null).length,
                     color: const Color(0xFF10B981),
-                    onTap: () => _openGroup(context, provider.randomGroup!),
+                    onTap: () { if (provider.randomGroup!.items.where((i) => i.decision == null).isEmpty) { provider.refreshRandomGroup(); } _openGroup(context, provider.randomGroup!); },
                   ),
                 ),
               if (provider.screenshotsGroup != null)
