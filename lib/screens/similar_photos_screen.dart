@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../models/gallery_media_item.dart';
 import '../providers/gallery_provider.dart';
+import '../widgets/universal_preview_dialog.dart';
 
 class SimilarPhotosScreen extends StatefulWidget {
   const SimilarPhotosScreen({super.key});
@@ -133,6 +134,14 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                 final item = group[i];
                 final isSelected = _selectedToKeepIds.contains(item.id);
                 return GestureDetector(
+                  onLongPress: () {
+                    HapticFeedback.heavyImpact();
+                    showDialog(
+                      context: context,
+                      barrierColor: Colors.black.withValues(alpha: 0.9),
+                      builder: (_) => UniversalPreviewDialog(items: group, initialIndex: i),
+                    );
+                  },
                   onTap: () {
                     setState(() {
                       if (isSelected) {
@@ -233,93 +242,3 @@ class _SimCachedThumbnailState extends State<_SimCachedThumbnail> {
 
 
 
-class _PreviewDialog extends StatefulWidget {
-  final List<GalleryMediaItem> items;
-  final int initialIndex;
-  const _PreviewDialog({required this.items, required this.initialIndex});
-
-  @override
-  State<_PreviewDialog> createState() => _PreviewDialogState();
-}
-
-class _PreviewDialogState extends State<_PreviewDialog> {
-  late PageController _pageController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-  
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: widget.items.length,
-            itemBuilder: (ctx, index) {
-              return _PreviewPage(item: widget.items[index]);
-            },
-          ),
-          Positioned(
-            top: 40,
-            right: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewPage extends StatefulWidget {
-  final GalleryMediaItem item;
-  const _PreviewPage({required this.item});
-  @override
-  State<_PreviewPage> createState() => _PreviewPageState();
-}
-
-class _PreviewPageState extends State<_PreviewPage> {
-  Future<Uint8List?>? _future;
-  @override
-  void initState() {
-    super.initState();
-    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
-  }
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: InteractiveViewer(
-        minScale: 1.0,
-        maxScale: 4.0,
-        child: FutureBuilder<Uint8List?>(
-          future: _future,
-          builder: (ctx, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: Colors.white));
-            }
-            if (snap.hasData && snap.data != null) {
-              return Image.memory(snap.data!, fit: BoxFit.contain);
-            }
-            return const Center(child: Icon(Icons.error, color: Colors.white));
-          },
-        ),
-      ),
-    );
-  }
-}

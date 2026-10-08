@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../models/gallery_media_item.dart';
 import '../providers/gallery_provider.dart';
+import '../widgets/universal_preview_dialog.dart';
 import '../widgets/video_card_player.dart';
 import 'staging_bin_screen.dart';
 import 'package:intl/intl.dart';
@@ -642,7 +643,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     showDialog(
                       context: context,
                       barrierColor: Colors.black.withValues(alpha: 0.9),
-                      builder: (_) => _GridPreviewDialog(item: item),
+                      builder: (_) => UniversalPreviewDialog(items: dateItems, initialIndex: index),
                     );
                   },
                   onTap: () {
@@ -1079,62 +1080,4 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
 
 
 
-
-class _GridPreviewDialog extends StatefulWidget {
-  final GalleryMediaItem item;
-  const _GridPreviewDialog({required this.item});
-
-  @override
-  State<_GridPreviewDialog> createState() => _GridPreviewDialogState();
-}
-
-class _GridPreviewDialogState extends State<_GridPreviewDialog> {
-  Future<Uint8List?>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 4.0,
-              child: FutureBuilder<Uint8List?>(
-                future: _future,
-                builder: (ctx, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.white));
-                  }
-                  if (snap.hasData && snap.data != null) {
-                    return Image.memory(snap.data!, fit: BoxFit.contain);
-                  }
-                  return const Center(child: Icon(Icons.error, color: Colors.white));
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            top: 40,
-            right: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
