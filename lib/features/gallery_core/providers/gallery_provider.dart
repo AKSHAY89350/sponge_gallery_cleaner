@@ -622,6 +622,9 @@ class GalleryProvider extends ChangeNotifier {
 
     randomGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
 
+    // Refetch disk space so the home screen storage widget updates!
+    await fetchDiskSpace();
+
     notifyListeners();
     return deletedIds.length;
   }
