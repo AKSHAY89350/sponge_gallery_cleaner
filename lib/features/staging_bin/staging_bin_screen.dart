@@ -154,7 +154,7 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
                               color: Colors.white, strokeWidth: 2.5),
                         )
                       : Text(
-                          'Permanently Delete ${items.length} Items',
+                          'Permanently Delete All (${items.length})',
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700),
                         ),
