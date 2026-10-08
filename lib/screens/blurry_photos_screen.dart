@@ -41,13 +41,48 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
         elevation: 0,
         title: const Text('Blurry Photos', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
+        actions: [
+          if (group != null && group.totalItems > 0)
+            Builder(
+              builder: (context) {
+                final totalBlurry = group.totalItems;
+                final resolvedCount = totalBlurry - blurryItems.length;
+                final percent = totalBlurry == 0 ? 0.0 : resolvedCount / totalBlurry;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: CircularProgressIndicator(
+                            value: percent,
+                            backgroundColor: Colors.white10,
+                            color: Colors.orangeAccent,
+                            strokeWidth: 3,
+                          ),
+                        ),
+                        Text(
+                          '${(percent * 100).toInt()}%',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            ),
+        ],
       ),
       body: Column(
         children: [
           if (isScanning) _buildScanningIndicator(scanned, total),
           Expanded(
             child: blurryItems.isEmpty && !isScanning
-                ? _buildEmptyState()
+                ? _buildEmptyState((group?.totalItems ?? 0) > 0)
                 : _buildResultsList(blurryItems, group),
           ),
         ],
@@ -95,7 +130,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isAllCaughtUp) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -103,15 +138,42 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.orangeAccent.withValues(alpha: 0.1),
+              color: isAllCaughtUp 
+                  ? const Color(0xFF10B981).withValues(alpha: 0.1) 
+                  : Colors.orangeAccent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.lens_blur_rounded, color: Colors.orangeAccent, size: 72),
+            child: Icon(
+              isAllCaughtUp ? Icons.check_circle_outline_rounded : Icons.lens_blur_rounded, 
+              color: isAllCaughtUp ? const Color(0xFF10B981) : Colors.orangeAccent, 
+              size: 72
+            ),
           ),
           const SizedBox(height: 24),
-          const Text('Crystal Clear!', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(
+            isAllCaughtUp ? 'All Caught Up!' : 'Crystal Clear!', 
+            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
+          ),
           const SizedBox(height: 12),
-          const Text('We couldn''t find any blurry\nor out-of-focus photos.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 15, height: 1.4)),
+          Text(
+            isAllCaughtUp 
+                ? 'You have resolved all blurry photos.'
+                : 'We couldn''t find any blurry\nor out-of-focus photos.', 
+            textAlign: TextAlign.center, 
+            style: const TextStyle(color: Colors.white54, fontSize: 15, height: 1.4)
+          ),
+          const SizedBox(height: 32),
+          if (isAllCaughtUp)
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
         ],
       ),
     );
@@ -168,4 +230,5 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
     );
   }
 }
+
 
