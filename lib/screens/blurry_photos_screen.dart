@@ -15,6 +15,7 @@ class BlurryPhotosScreen extends StatefulWidget {
 }
 
 class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
+  final Set<String> _selectedIds = {};
   @override
   void initState() {
     super.initState();
@@ -89,15 +90,29 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
         ],
       ),
       floatingActionButton: blurryItems.isNotEmpty && !isScanning
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                group!.recalculateCurrentIndex();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => SwipeScreen(group: group)));
-              },
-              backgroundColor: Colors.orangeAccent,
-              icon: const Icon(Icons.cleaning_services_rounded, color: Colors.black),
-              label: const Text('Review Blurry Photos', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            )
+          ? (_selectedIds.isNotEmpty 
+              ? FloatingActionButton.extended(
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                    provider.bulkAddToStagingBin(itemsToTrash);
+                    setState(() {
+                      _selectedIds.clear();
+                    });
+                  },
+                  backgroundColor: Colors.redAccent,
+                  icon: const Icon(Icons.delete_rounded, color: Colors.white),
+                  label: Text('Trash Selected (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                )
+              : FloatingActionButton.extended(
+                  onPressed: () {
+                    group!.recalculateCurrentIndex();
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => SwipeScreen(group: group)));
+                  },
+                  backgroundColor: Colors.orangeAccent,
+                  icon: const Icon(Icons.cleaning_services_rounded, color: Colors.black),
+                  label: const Text('Review Blurry Photos', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                ))
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
