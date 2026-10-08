@@ -138,6 +138,20 @@ class GalleryProvider extends ChangeNotifier {
           );
 
           // Load saved decision from prefs
+          // Load blurry state
+          final savedBlurry = prefs.getBool('blurry_${item.id}');
+          if (savedBlurry != null) {
+            item.isBlurry = savedBlurry;
+            if (savedBlurry) {
+              if (blurryGroup == null) {
+                blurryGroup = MonthGroup(label: 'Blurry Photos', yearMonthKey: 'blurry_photos', items: [item]);
+              } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
+                blurryGroup!.items.add(item);
+              }
+              blurryGroup!.recalculateCurrentIndex();
+            }
+          }
+          
           final savedDecision = prefs.getString('decision_${item.id}');
           if (savedDecision != null) {
             item.decision = SwipeAction.values.firstWhere(
@@ -280,7 +294,21 @@ class GalleryProvider extends ChangeNotifier {
         mimeType: asset.mimeType,
       );
 
-      final savedDecision = prefs.getString('decision_${item.id}');
+      // Load blurry state
+          final savedBlurry = prefs.getBool('blurry_${item.id}');
+          if (savedBlurry != null) {
+            item.isBlurry = savedBlurry;
+            if (savedBlurry) {
+              if (blurryGroup == null) {
+                blurryGroup = MonthGroup(label: 'Blurry Photos', yearMonthKey: 'blurry_photos', items: [item]);
+              } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
+                blurryGroup!.items.add(item);
+              }
+              blurryGroup!.recalculateCurrentIndex();
+            }
+          }
+          
+          final savedDecision = prefs.getString('decision_${item.id}');
       if (savedDecision != null) {
         item.decision = SwipeAction.values.firstWhere(
           (e) => e.name == savedDecision,
@@ -377,7 +405,21 @@ class GalleryProvider extends ChangeNotifier {
         );
 
         allItems.add(item);
-        final savedDecision = prefs.getString('decision_${item.id}');
+        // Load blurry state
+          final savedBlurry = prefs.getBool('blurry_${item.id}');
+          if (savedBlurry != null) {
+            item.isBlurry = savedBlurry;
+            if (savedBlurry) {
+              if (blurryGroup == null) {
+                blurryGroup = MonthGroup(label: 'Blurry Photos', yearMonthKey: 'blurry_photos', items: [item]);
+              } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
+                blurryGroup!.items.add(item);
+              }
+              blurryGroup!.recalculateCurrentIndex();
+            }
+          }
+          
+          final savedDecision = prefs.getString('decision_${item.id}');
         if (savedDecision != null) {
           item.decision = SwipeAction.values.firstWhere(
             (e) => e.name == savedDecision,
@@ -503,6 +545,8 @@ class GalleryProvider extends ChangeNotifier {
           if (data != null) {
             final isB = await BlurDetector.isImageBlurry(data);
             item.isBlurry = isB;
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('blurry_${item.id}', isB);
             if (isB) {
               newBlurries.add(item);
             }
@@ -551,6 +595,7 @@ class GalleryProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     for (final id in deletedIds) {
       await prefs.remove('decision_$id');
+        await prefs.remove('blurry_$id');
     }
 
     // Remove from all month groups
@@ -574,6 +619,7 @@ class GalleryProvider extends ChangeNotifier {
   Future<void> _clearDecision(String id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('decision_$id');
+        await prefs.remove('blurry_$id');
   }
 
   String _monthLabel(int month, int year) {
