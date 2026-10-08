@@ -637,6 +637,14 @@ class _SwipeScreenState extends State<SwipeScreen> {
                 final isSelected = _selectedIds.contains(item.id);
 
                 return GestureDetector(
+                  onLongPress: () {
+                    HapticFeedback.heavyImpact();
+                    showDialog(
+                      context: context,
+                      barrierColor: Colors.black.withValues(alpha: 0.9),
+                      builder: (_) => _GridPreviewDialog(item: item),
+                    );
+                  },
                   onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() {
@@ -1071,3 +1079,61 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
 
 
 
+
+class _GridPreviewDialog extends StatefulWidget {
+  final GalleryMediaItem item;
+  const _GridPreviewDialog({required this.item});
+
+  @override
+  State<_GridPreviewDialog> createState() => _GridPreviewDialogState();
+}
+
+class _GridPreviewDialogState extends State<_GridPreviewDialog> {
+  Future<Uint8List?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = AssetEntity.fromId(widget.item.id).then((e) => e?.thumbnailDataWithSize(const ThumbnailSize.square(1024)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 4.0,
+              child: FutureBuilder<Uint8List?>(
+                future: _future,
+                builder: (ctx, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: Colors.white));
+                  }
+                  if (snap.hasData && snap.data != null) {
+                    return Image.memory(snap.data!, fit: BoxFit.contain);
+                  }
+                  return const Center(child: Icon(Icons.error, color: Colors.white));
+                },
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 20,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
