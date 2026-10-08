@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
-import '../models/gallery_media_item.dart';
-import '../providers/gallery_provider.dart';
-import '../widgets/universal_preview_dialog.dart';
-import '../widgets/video_card_player.dart';
-import 'staging_bin_screen.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/video_card_player.dart';
+import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.dart';
 import 'package:intl/intl.dart';
 
 class SwipeScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class SwipeScreen extends StatefulWidget {
 class _SwipeScreenState extends State<SwipeScreen> {
   int _currentIndex = 0;
   final ScrollController _previewScrollController = ScrollController();
-  
+
   bool _isGridView = false;
   final Set<String> _selectedIds = {};
 
@@ -64,7 +64,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
       _dragOffset = Offset.zero;
       _currentIndex++;
       // Skip over items that already have a decision
-      while (_currentIndex < widget.group.items.length && widget.group.items[_currentIndex].decision != null) {
+      while (_currentIndex < widget.group.items.length &&
+          widget.group.items[_currentIndex].decision != null) {
         _currentIndex++;
       }
       widget.group.currentIndex = _currentIndex;
@@ -77,7 +78,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
     HapticFeedback.selectionClick();
     final last = _undoStack.removeLast();
     context.read<GalleryProvider>().removeFromStagingBin(last);
-    
+
     setState(() {
       final lastIndex = widget.group.items.indexWhere((i) => i.id == last.id);
       if (lastIndex != -1) {
@@ -88,17 +89,18 @@ class _SwipeScreenState extends State<SwipeScreen> {
     _scrollToCurrent();
   }
 
-  
   void _scrollToCurrent() {
     if (!_previewScrollController.hasClients) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_previewScrollController.hasClients) return;
-      final itemWidth = 52.0; 
+      final itemWidth = 52.0;
       final screenWidth = MediaQuery.of(context).size.width;
-      final targetOffset = (_currentIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
-      
+      final targetOffset =
+          (_currentIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
+
       _previewScrollController.animateTo(
-        targetOffset.clamp(0.0, _previewScrollController.position.maxScrollExtent),
+        targetOffset.clamp(
+            0.0, _previewScrollController.position.maxScrollExtent),
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
@@ -127,9 +129,16 @@ class _SwipeScreenState extends State<SwipeScreen> {
         children: [
           _buildProgressBar(),
           if (!_isDone && !_isGridView) _buildTopPreviewStrip(),
-          Expanded(child: _isDone ? _buildDoneView() : (_isGridView ? _buildGridView() : _buildCardArea())),
-          if (!_isDone && !_isGridView) ...[_buildControls(), const SizedBox(height: 24)],
-          if (!_isDone && _isGridView && _selectedIds.isNotEmpty) _buildGridControls(),
+          Expanded(
+              child: _isDone
+                  ? _buildDoneView()
+                  : (_isGridView ? _buildGridView() : _buildCardArea())),
+          if (!_isDone && !_isGridView) ...[
+            _buildControls(),
+            const SizedBox(height: 24)
+          ],
+          if (!_isDone && _isGridView && _selectedIds.isNotEmpty)
+            _buildGridControls(),
         ],
       ),
     );
@@ -160,7 +169,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
       centerTitle: true,
       actions: [
         IconButton(
-          icon: Icon(_isGridView ? Icons.view_carousel_rounded : Icons.grid_view_rounded),
+          icon: Icon(_isGridView
+              ? Icons.view_carousel_rounded
+              : Icons.grid_view_rounded),
           color: Colors.white70,
           onPressed: () {
             setState(() {
@@ -204,9 +215,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
   }
 
   Widget _buildProgressBar() {
-    final progress = widget.group.totalItems == 0
-        ? 0.0
-        : widget.group.progressPercent;
+    final progress =
+        widget.group.totalItems == 0 ? 0.0 : widget.group.progressPercent;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: ClipRRect(
@@ -242,7 +252,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
         scrollDirection: Axis.horizontal,
         itemCount: total,
         padding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width / 2 - 26, 
+          horizontal: MediaQuery.of(context).size.width / 2 - 26,
         ),
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
@@ -291,23 +301,24 @@ class _SwipeScreenState extends State<SwipeScreen> {
               Positioned.fill(
                 child: Transform.scale(
                   scale: 0.88,
-                  child: _buildPhotoCard(
-                      widget.group.items[_currentIndex + 2], 0),
+                  child:
+                      _buildPhotoCard(widget.group.items[_currentIndex + 2], 0),
                 ),
               ),
             if (_currentIndex + 1 < widget.group.items.length)
               Positioned.fill(
                 child: Transform.scale(
                   scale: 0.94,
-                  child: _buildPhotoCard(
-                      widget.group.items[_currentIndex + 1], 0),
+                  child:
+                      _buildPhotoCard(widget.group.items[_currentIndex + 1], 0),
                 ),
               ),
             // Active draggable card
             if (_currentItem != null)
               Positioned.fill(
                 child: Transform(
-                  transform: Matrix4.translationValues(_dragOffset.dx, _dragOffset.dy * 0.25, 0.0)
+                  transform: Matrix4.translationValues(
+                      _dragOffset.dx, _dragOffset.dy * 0.25, 0.0)
                     ..rotateZ(_dragOffset.dx / 600),
                   alignment: Alignment.bottomCenter,
                   child: Stack(
@@ -326,8 +337,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                         const Positioned(
                           top: 32,
                           right: 24,
-                          child:
-                              _SwipeLabel(text: 'TRASH', color: Colors.red),
+                          child: _SwipeLabel(text: 'TRASH', color: Colors.red),
                         ),
                     ],
                   ),
@@ -338,8 +348,6 @@ class _SwipeScreenState extends State<SwipeScreen> {
       ),
     );
   }
-
-
 
   Widget _buildPhotoCard(GalleryMediaItem item, double dragX) {
     final isTopCard = _currentItem?.id == item.id;
@@ -364,17 +372,16 @@ class _SwipeScreenState extends State<SwipeScreen> {
             VideoCardPlayer(
               key: ValueKey('video_${item.id}'),
               item: item,
-              thumbnailWidget: _CachedMediaThumbnail(item: item, fit: BoxFit.contain),
+              thumbnailWidget:
+                  _CachedMediaThumbnail(item: item, fit: BoxFit.contain),
             )
           else
             _CachedMediaThumbnail(item: item, fit: BoxFit.contain),
 
           // Color tint on swipe
           if (dragX > 40)
-            Container(
-                color: const Color(0xFF10B981).withValues(alpha: 0.18)),
-          if (dragX < -40)
-            Container(color: Colors.red.withValues(alpha: 0.18)),
+            Container(color: const Color(0xFF10B981).withValues(alpha: 0.18)),
+          if (dragX < -40) Container(color: Colors.red.withValues(alpha: 0.18)),
 
           // Bottom info gradient (for photos only, as videos have playback bar)
           if (!item.isVideo)
@@ -412,8 +419,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     ),
                     Text(
                       '${item.width}×${item.height}',
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 11),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                   ],
                 ),
@@ -539,8 +546,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   ),
                   onPressed: () => Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const StagingBinScreen()),
+                    MaterialPageRoute(builder: (_) => const StagingBinScreen()),
                   ),
                   child: Text(
                       'Review Trash (${provider.stagingBin.length} items)'),
@@ -572,7 +578,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
   // ────────────────────────────────────────────────────────────────────────
 
   Widget _buildGridView() {
-    final remainingItems = widget.group.items.where((i) => i.decision == null).toList();
+    final remainingItems =
+        widget.group.items.where((i) => i.decision == null).toList();
     if (remainingItems.isEmpty) return const SizedBox.shrink();
 
     // Group by Date (Day)
@@ -598,11 +605,18 @@ class _SwipeScreenState extends State<SwipeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(dateLabel, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(dateLabel,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: Icon(
-                    allSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                    color: allSelected ? const Color(0xFF6C63FF) : Colors.white54,
+                    allSelected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color:
+                        allSelected ? const Color(0xFF6C63FF) : Colors.white54,
                   ),
                   onPressed: () {
                     HapticFeedback.selectionClick();
@@ -643,7 +657,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     showDialog(
                       context: context,
                       barrierColor: Colors.black.withValues(alpha: 0.9),
-                      builder: (_) => UniversalPreviewDialog(items: dateItems, initialIndex: index),
+                      builder: (_) => UniversalPreviewDialog(
+                          items: dateItems, initialIndex: index),
                     );
                   },
                   onTap: () {
@@ -660,7 +675,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
+                        color: isSelected
+                            ? const Color(0xFF6C63FF)
+                            : Colors.transparent,
                         width: 3,
                       ),
                     ),
@@ -668,18 +685,22 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _CachedMediaThumbnail(item: item, size: 300, quality: 60),
+                        _CachedMediaThumbnail(
+                            item: item, size: 300, quality: 60),
                         if (item.isVideo)
                           const Positioned(
                             bottom: 4,
                             right: 4,
-                            child: Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
+                            child: Icon(Icons.play_circle_fill,
+                                color: Colors.white, size: 20),
                           ),
                         if (isSelected)
                           Container(
-                            color: const Color(0xFF6C63FF).withValues(alpha: 0.3),
+                            color:
+                                const Color(0xFF6C63FF).withValues(alpha: 0.3),
                             child: const Center(
-                              child: Icon(Icons.check_circle_rounded, color: Colors.white, size: 32),
+                              child: Icon(Icons.check_circle_rounded,
+                                  color: Colors.white, size: 32),
                             ),
                           ),
                       ],
@@ -707,7 +728,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       decoration: BoxDecoration(
         color: const Color(0xFF141414),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+        border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -722,7 +744,8 @@ class _SwipeScreenState extends State<SwipeScreen> {
                 foregroundColor: Colors.red,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ),
@@ -733,11 +756,13 @@ class _SwipeScreenState extends State<SwipeScreen> {
               icon: const Icon(Icons.check_rounded),
               label: Text('Keep (${_selectedIds.length})'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+                backgroundColor:
+                    const Color(0xFF10B981).withValues(alpha: 0.15),
                 foregroundColor: const Color(0xFF10B981),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ),
@@ -749,10 +774,11 @@ class _SwipeScreenState extends State<SwipeScreen> {
   void _bulkTrash() {
     if (_selectedIds.isEmpty) return;
     HapticFeedback.mediumImpact();
-    
-    final itemsToTrash = widget.group.items.where((i) => _selectedIds.contains(i.id)).toList();
+
+    final itemsToTrash =
+        widget.group.items.where((i) => _selectedIds.contains(i.id)).toList();
     context.read<GalleryProvider>().bulkAddToStagingBin(itemsToTrash);
-    
+
     setState(() {
       _selectedIds.clear();
       widget.group.recalculateCurrentIndex();
@@ -763,10 +789,11 @@ class _SwipeScreenState extends State<SwipeScreen> {
   void _bulkKeep() {
     if (_selectedIds.isEmpty) return;
     HapticFeedback.lightImpact();
-    
-    final itemsToKeep = widget.group.items.where((i) => _selectedIds.contains(i.id)).toList();
+
+    final itemsToKeep =
+        widget.group.items.where((i) => _selectedIds.contains(i.id)).toList();
     context.read<GalleryProvider>().bulkKeepItems(itemsToKeep);
-    
+
     setState(() {
       _selectedIds.clear();
       widget.group.recalculateCurrentIndex();
@@ -774,7 +801,6 @@ class _SwipeScreenState extends State<SwipeScreen> {
     });
   }
 }
-
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -827,10 +853,14 @@ class _RoundButton extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: enabled ? color.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.04),
+          color: enabled
+              ? color.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.04),
           shape: BoxShape.circle,
           border: Border.all(
-            color: enabled ? color.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.08),
+            color: enabled
+                ? color.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.08),
           ),
         ),
         child: Icon(
@@ -1002,8 +1032,6 @@ class _PreviewThumbnailSlot extends StatelessWidget {
   }
 }
 
-
-
 class _CachedMediaThumbnail extends StatefulWidget {
   final GalleryMediaItem item;
   final int size;
@@ -1074,10 +1102,4 @@ class _CachedMediaThumbnailState extends State<_CachedMediaThumbnail> {
       },
     );
   }
-
-
 }
-
-
-
-

@@ -2,8 +2,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:provider/provider.dart';
-import '../providers/gallery_provider.dart';
-import '../models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 
 class StagingBinScreen extends StatefulWidget {
   const StagingBinScreen({super.key});
@@ -46,7 +46,9 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
         ),
         centerTitle: true,
       ),
-      body: items.isEmpty ? _buildEmpty() : _buildContent(context, provider, items),
+      body: items.isEmpty
+          ? _buildEmpty()
+          : _buildContent(context, provider, items),
     );
   }
 
@@ -58,7 +60,10 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
           Text('🗑️', style: TextStyle(fontSize: 64)),
           SizedBox(height: 20),
           Text('Trash is empty',
-              style: TextStyle(color: Colors.white54, fontSize: 20, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600)),
           SizedBox(height: 8),
           Text(
             'Swipe left on photos to add them here',
@@ -250,7 +255,8 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
             navigator.pop();
             messenger.showSnackBar(
               SnackBar(
-                content: Text('✅ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
+                content: Text(
+                    '✅ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
                 backgroundColor: const Color(0xFF10B981),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -332,7 +338,8 @@ class _StagingCachedThumbnail extends StatefulWidget {
   const _StagingCachedThumbnail({required this.item});
 
   @override
-  State<_StagingCachedThumbnail> createState() => _StagingCachedThumbnailState();
+  State<_StagingCachedThumbnail> createState() =>
+      _StagingCachedThumbnailState();
 }
 
 class _StagingCachedThumbnailState extends State<_StagingCachedThumbnail> {
@@ -367,10 +374,11 @@ class _StagingCachedThumbnailState extends State<_StagingCachedThumbnail> {
       future: _future,
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-           return Container(color: const Color(0xFF252525));
+          return Container(color: const Color(0xFF252525));
         }
         if (snap.hasData && snap.data != null) {
-          return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
+          return Image.memory(snap.data!,
+              fit: BoxFit.cover, gaplessPlayback: true);
         }
         return Container(color: const Color(0xFF252525));
       },

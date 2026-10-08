@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/gallery_provider.dart';
-import 'screens/home_screen.dart';
-import 'screens/permission_screen.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/features/dashboard/home_screen.dart';
+import 'package:sponge_gallery_cleaner/features/dashboard/permission_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

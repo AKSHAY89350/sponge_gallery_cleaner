@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
-import '../models/gallery_media_item.dart';
-import '../providers/gallery_provider.dart';
-import '../widgets/universal_preview_dialog.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
 
 class SimilarPhotosScreen extends StatefulWidget {
   const SimilarPhotosScreen({super.key});
@@ -20,10 +20,10 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
 
   void _keepSelectedAndTrashRest(List<GalleryMediaItem> group) {
     final provider = context.read<GalleryProvider>();
-    
+
     final itemsToKeep = <GalleryMediaItem>[];
     final itemsToTrash = <GalleryMediaItem>[];
-    
+
     for (final item in group) {
       if (_selectedToKeepIds.contains(item.id)) {
         itemsToKeep.add(item);
@@ -31,23 +31,24 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
         itemsToTrash.add(item);
       }
     }
-    
+
     if (itemsToKeep.isNotEmpty) {
       provider.bulkKeepItems(itemsToKeep);
     }
     if (itemsToTrash.isNotEmpty) {
       provider.bulkAddToStagingBin(itemsToTrash);
     }
-    
+
     setState(() {
       for (final item in group) {
         _selectedToKeepIds.remove(item.id);
       }
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Kept ${itemsToKeep.length} photos, Trashed ${itemsToTrash.length}.'),
+        content: Text(
+            'Kept ${itemsToKeep.length} photos, Trashed ${itemsToTrash.length}.'),
         backgroundColor: Colors.blueAccent,
         behavior: SnackBarBehavior.floating,
       ),
@@ -57,18 +58,22 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GalleryProvider>();
-    
+
     // Filter out items that already have a decision
-    final liveGroups = provider.similarPhotoGroups.map((group) {
-      return group.where((i) => i.decision == null).toList();
-    }).where((group) => group.length > 1).toList();
+    final liveGroups = provider.similarPhotoGroups
+        .map((group) {
+          return group.where((i) => i.decision == null).toList();
+        })
+        .where((group) => group.length > 1)
+        .toList();
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Similar & Burst', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Similar & Burst',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
       body: liveGroups.isEmpty
@@ -107,20 +112,27 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               children: [
                 Text(
                   '${group.length} Similar Photos',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
                 ),
-                if (_selectedToKeepIds.intersection(group.map((e) => e.id).toSet()).isNotEmpty)
+                if (_selectedToKeepIds
+                    .intersection(group.map((e) => e.id).toSet())
+                    .isNotEmpty)
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () => _keepSelectedAndTrashRest(group),
                     child: const Text('Keep', style: TextStyle(fontSize: 12)),
                   )
                 else
-                  const Text('Select best ones', style: TextStyle(color: Colors.white54, fontSize: 12))
+                  const Text('Select best ones',
+                      style: TextStyle(color: Colors.white54, fontSize: 12))
               ],
             ),
           ),
@@ -139,7 +151,8 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                     showDialog(
                       context: context,
                       barrierColor: Colors.black.withValues(alpha: 0.9),
-                      builder: (_) => UniversalPreviewDialog(items: group, initialIndex: i),
+                      builder: (_) =>
+                          UniversalPreviewDialog(items: group, initialIndex: i),
                     );
                   },
                   onTap: () {
@@ -168,10 +181,12 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                         children: [
                           _SimCachedThumbnail(item: item),
                           if (isSelected)
-                            Container(color: Colors.green.withValues(alpha: 0.2)),
+                            Container(
+                                color: Colors.green.withValues(alpha: 0.2)),
                           if (isSelected)
                             const Center(
-                              child: Icon(Icons.check_circle_rounded, color: Colors.white, size: 32),
+                              child: Icon(Icons.check_circle_rounded,
+                                  color: Colors.white, size: 32),
                             ),
                         ],
                       ),
@@ -181,7 +196,6 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               },
             ),
           ),
-          
           const SizedBox(height: 16),
         ],
       ),
@@ -229,16 +243,14 @@ class _SimCachedThumbnailState extends State<_SimCachedThumbnail> {
       future: _future,
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-           return Container(color: const Color(0xFF252525));
+          return Container(color: const Color(0xFF252525));
         }
         if (snap.hasData && snap.data != null) {
-          return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
+          return Image.memory(snap.data!,
+              fit: BoxFit.cover, gaplessPlayback: true);
         }
         return Container(color: const Color(0xFF252525));
       },
     );
   }
 }
-
-
-

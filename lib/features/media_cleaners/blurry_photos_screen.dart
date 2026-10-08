@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
-import '../models/gallery_media_item.dart';
-import '../providers/gallery_provider.dart';
-import '../widgets/universal_preview_dialog.dart';
-import 'swipe_screen.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
 
 class BlurryPhotosScreen extends StatefulWidget {
   const BlurryPhotosScreen({super.key});
@@ -34,50 +34,54 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
     final total = provider.blurryTotalCount;
     final scanned = provider.blurryScannedCount;
     final group = provider.blurryGroup;
-    
-    final blurryItems = group?.items.where((i) => i.decision == null).toList() ?? [];
+
+    final blurryItems =
+        group?.items.where((i) => i.decision == null).toList() ?? [];
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Blurry Photos', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Blurry Photos',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         actions: [
           if (group != null && group.totalItems > 0)
-            Builder(
-              builder: (context) {
-                final totalBlurry = group.totalItems;
-                final resolvedCount = totalBlurry - blurryItems.length;
-                final percent = totalBlurry == 0 ? 0.0 : resolvedCount / totalBlurry;
-                
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 38,
-                          height: 38,
-                          child: CircularProgressIndicator(
-                            value: percent,
-                            backgroundColor: Colors.white10,
-                            color: Colors.orangeAccent,
-                            strokeWidth: 3,
-                          ),
+            Builder(builder: (context) {
+              final totalBlurry = group.totalItems;
+              final resolvedCount = totalBlurry - blurryItems.length;
+              final percent =
+                  totalBlurry == 0 ? 0.0 : resolvedCount / totalBlurry;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: CircularProgressIndicator(
+                          value: percent,
+                          backgroundColor: Colors.white10,
+                          color: Colors.orangeAccent,
+                          strokeWidth: 3,
                         ),
-                        Text(
-                          '${(percent * 100).toInt()}%',
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        '${(percent * 100).toInt()}%',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                );
-              }
-            ),
+                ),
+              );
+            }),
         ],
       ),
       body: Column(
@@ -90,7 +94,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           ),
         ],
       ),
-      floatingActionButton: _selectedIds.isNotEmpty 
+      floatingActionButton: _selectedIds.isNotEmpty
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -100,21 +104,28 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
                     heroTag: 'keep_btn',
                     onPressed: () {
                       HapticFeedback.lightImpact();
-                      final itemsToKeep = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                      final itemsToKeep = blurryItems
+                          .where((i) => _selectedIds.contains(i.id))
+                          .toList();
                       provider.bulkKeepItems(itemsToKeep);
                       setState(() {
                         _selectedIds.clear();
                       });
                     },
                     backgroundColor: Colors.green,
-                    icon: const Icon(Icons.favorite_rounded, color: Colors.white),
-                    label: Text('Keep (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon:
+                        const Icon(Icons.favorite_rounded, color: Colors.white),
+                    label: Text('Keep (${_selectedIds.length})',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                   FloatingActionButton.extended(
                     heroTag: 'trash_btn',
                     onPressed: () {
                       HapticFeedback.heavyImpact();
-                      final itemsToTrash = blurryItems.where((i) => _selectedIds.contains(i.id)).toList();
+                      final itemsToTrash = blurryItems
+                          .where((i) => _selectedIds.contains(i.id))
+                          .toList();
                       provider.bulkAddToStagingBin(itemsToTrash);
                       setState(() {
                         _selectedIds.clear();
@@ -122,7 +133,9 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
                     },
                     backgroundColor: Colors.redAccent,
                     icon: const Icon(Icons.delete_rounded, color: Colors.white),
-                    label: Text('Trash (${_selectedIds.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: Text('Trash (${_selectedIds.length})',
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -131,11 +144,17 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
               ? FloatingActionButton.extended(
                   onPressed: () {
                     group!.recalculateCurrentIndex();
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => SwipeScreen(group: group)));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => SwipeScreen(group: group)));
                   },
                   backgroundColor: Colors.orangeAccent,
-                  icon: const Icon(Icons.cleaning_services_rounded, color: Colors.black),
-                  label: const Text('Review Blurry Photos', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.cleaning_services_rounded,
+                      color: Colors.black),
+                  label: const Text('Review Blurry Photos',
+                      style: TextStyle(
+                          color: Colors.black, fontWeight: FontWeight.bold)),
                 )
               : null),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -154,7 +173,11 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
       ),
       child: Column(
         children: [
-          const Text('Analyzing Sharpness (AI)...', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('Analyzing Sharpness (AI)...',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           LinearProgressIndicator(
             value: percent,
@@ -164,7 +187,8 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 12),
-          Text('\ / \ photos processed', style: const TextStyle(color: Colors.white54, fontSize: 14)),
+          Text('\ / \ photos processed',
+              style: const TextStyle(color: Colors.white54, fontSize: 14)),
         ],
       ),
     );
@@ -178,30 +202,34 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isAllCaughtUp 
-                  ? const Color(0xFF10B981).withValues(alpha: 0.1) 
+              color: isAllCaughtUp
+                  ? const Color(0xFF10B981).withValues(alpha: 0.1)
                   : Colors.orangeAccent.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isAllCaughtUp ? Icons.check_circle_outline_rounded : Icons.lens_blur_rounded, 
-              color: isAllCaughtUp ? const Color(0xFF10B981) : Colors.orangeAccent, 
-              size: 72
-            ),
+                isAllCaughtUp
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.lens_blur_rounded,
+                color: isAllCaughtUp
+                    ? const Color(0xFF10B981)
+                    : Colors.orangeAccent,
+                size: 72),
           ),
           const SizedBox(height: 24),
-          Text(
-            isAllCaughtUp ? 'All Caught Up!' : 'Crystal Clear!', 
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
-          ),
+          Text(isAllCaughtUp ? 'All Caught Up!' : 'Crystal Clear!',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Text(
-            isAllCaughtUp 
-                ? 'You have resolved all blurry photos.'
-                : 'We couldn''t find any blurry\nor out-of-focus photos.', 
-            textAlign: TextAlign.center, 
-            style: const TextStyle(color: Colors.white54, fontSize: 15, height: 1.4)
-          ),
+              isAllCaughtUp
+                  ? 'You have resolved all blurry photos.'
+                  : 'We couldn' 't find any blurry\nor out-of-focus photos.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white54, fontSize: 15, height: 1.4)),
           const SizedBox(height: 32),
           if (isAllCaughtUp)
             ElevatedButton(
@@ -209,10 +237,13 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text('Back to Home',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -221,7 +252,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
 
   Widget _buildResultsList(List<GalleryMediaItem> items, MonthGroup? group) {
     if (items.isEmpty) return const SizedBox.shrink();
-    
+
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -234,8 +265,8 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
         final item = items[i];
         final isSelected = _selectedIds.contains(item.id);
         return _BlurryGridThumbnail(
-          item: item, 
-          allItems: items, 
+          item: item,
+          allItems: items,
           index: i,
           isSelected: isSelected,
           onTap: () {
@@ -253,15 +284,19 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
   }
 }
 
-
-
 class _BlurryGridThumbnail extends StatefulWidget {
   final GalleryMediaItem item;
   final List<GalleryMediaItem> allItems;
   final int index;
   final bool isSelected;
   final VoidCallback onTap;
-  const _BlurryGridThumbnail({super.key, required this.item, required this.allItems, required this.index, required this.isSelected, required this.onTap});
+  const _BlurryGridThumbnail(
+      {super.key,
+      required this.item,
+      required this.allItems,
+      required this.index,
+      required this.isSelected,
+      required this.onTap});
 
   @override
   State<_BlurryGridThumbnail> createState() => _BlurryGridThumbnailState();
@@ -280,7 +315,8 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
     final asset = await AssetEntity.fromId(widget.item.id);
     if (asset != null && mounted) {
       setState(() {
-        _thumbFuture = asset.thumbnailDataWithSize(const ThumbnailSize.square(256));
+        _thumbFuture =
+            asset.thumbnailDataWithSize(const ThumbnailSize.square(256));
       });
     }
   }
@@ -293,7 +329,8 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
         showDialog(
           context: context,
           barrierColor: Colors.black.withValues(alpha: 0.9),
-          builder: (_) => UniversalPreviewDialog(items: widget.allItems, initialIndex: widget.index),
+          builder: (_) => UniversalPreviewDialog(
+              items: widget.allItems, initialIndex: widget.index),
         );
       },
       onTap: () {
@@ -304,7 +341,9 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: widget.isSelected ? const Color(0xFF6C63FF) : Colors.transparent,
+            color: widget.isSelected
+                ? const Color(0xFF6C63FF)
+                : Colors.transparent,
             width: 3,
           ),
         ),
@@ -319,7 +358,8 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
                   return Container(color: const Color(0xFF252525));
                 }
                 if (snap.hasData && snap.data != null) {
-                  return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
+                  return Image.memory(snap.data!,
+                      fit: BoxFit.cover, gaplessPlayback: true);
                 }
                 return Container(color: const Color(0xFF252525));
               },
@@ -329,15 +369,22 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
               right: 4,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                child: const Text('Blurry', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(4)),
+                child: const Text('Blurry',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
               ),
             ),
             if (widget.isSelected)
               Positioned(
                 top: 4,
                 right: 4,
-                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF6C63FF), size: 24),
+                child: const Icon(Icons.check_circle_rounded,
+                    color: Color(0xFF6C63FF), size: 24),
               ),
           ],
         ),
@@ -345,4 +392,3 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
     );
   }
 }
-

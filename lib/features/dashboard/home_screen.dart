@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/gallery_provider.dart';
-import '../models/gallery_media_item.dart';
-import 'swipe_screen.dart';
-import 'staging_bin_screen.dart';
-import 'blurry_photos_screen.dart';
-import 'similar_photos_screen.dart';
-import 'large_files_menu_screen.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
+import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/blurry_photos_screen.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/similar_photos_screen.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/large_files_menu_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,7 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Colors.red.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: Colors.red.withValues(alpha: 0.4), width: 1),
+                              color: Colors.red.withValues(alpha: 0.4),
+                              width: 1),
                         ),
                         child: Row(
                           children: [
@@ -188,8 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C63FF),
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
@@ -222,61 +222,117 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         Row(
-            children: [
-              Expanded(
-                child: _QuickCard(
-                  label: 'Similar\nPhotos',
-                  count: provider.similarPhotoGroups.length,
-                  icon: Icons.filter_none_rounded,
-                  color: const Color(0xFFE83A59),
-                  onTap: () {
-                    if (provider.similarPhotoGroups.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No similar photos found!')));
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SimilarPhotosScreen()),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _QuickCard(
-                  label: 'Blurry\nPhotos',
-                  count: provider.blurryGroup?.items.where((i) => i.decision == null).length ?? 0,
-                  icon: Icons.blur_on_rounded,
-                  color: Colors.orangeAccent,
-                  onTap: () => Navigator.push(
+          children: [
+            Expanded(
+              child: _QuickCard(
+                label: 'Similar\nPhotos',
+                count: provider.similarPhotoGroups.length,
+                icon: Icons.filter_none_rounded,
+                color: const Color(0xFFE83A59),
+                onTap: () {
+                  if (provider.similarPhotoGroups.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('No similar photos found!')));
+                    return;
+                  }
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
-                  ),
+                    MaterialPageRoute(
+                        builder: (_) => const SimilarPhotosScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _QuickCard(
+                label: 'Blurry\nPhotos',
+                count: provider.blurryGroup?.items
+                        .where((i) => i.decision == null)
+                        .length ??
+                    0,
+                icon: Icons.blur_on_rounded,
+                color: Colors.orangeAccent,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BlurryPhotosScreen()),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _QuickCard(
-            label: 'WhatsApp Junk',
-            count: provider.whatsappGroup?.totalItems ?? 0,
-            icon: Icons.chat_bubble_outline_rounded,
-            color: const Color(0xFF25D366),
-            onTap: () {
-              if (provider.whatsappGroup == null || provider.whatsappGroup!.totalItems == 0) {
-                showDialog(context: context, builder: (_) => Dialog(backgroundColor: const Color(0xFF1C1C1C), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), child: Padding(padding: const EdgeInsets.all(32), child: Column(mainAxisSize: MainAxisSize.min, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFF25D366).withValues(alpha: 0.1), shape: BoxShape.circle), child: const Icon(Icons.check_circle_rounded, color: Color(0xFF25D366), size: 64)), const SizedBox(height: 24), const Text('Squeaky Clean!', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)), const SizedBox(height: 12), const Text('No WhatsApp junk found on your device. Great job keeping your gallery tidy!', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.4)), const SizedBox(height: 32), SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('Awesome', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))))]))));
-                return;
-              }
-              provider.whatsappGroup!.recalculateCurrentIndex();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SwipeScreen(group: provider.whatsappGroup!),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _QuickCard(
+          label: 'WhatsApp Junk',
+          count: provider.whatsappGroup?.totalItems ?? 0,
+          icon: Icons.chat_bubble_outline_rounded,
+          color: const Color(0xFF25D366),
+          onTap: () {
+            if (provider.whatsappGroup == null ||
+                provider.whatsappGroup!.totalItems == 0) {
+              showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                      backgroundColor: const Color(0xFF1C1C1C),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24)),
+                      child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                    color: const Color(0xFF25D366)
+                                        .withValues(alpha: 0.1),
+                                    shape: BoxShape.circle),
+                                child: const Icon(Icons.check_circle_rounded,
+                                    color: Color(0xFF25D366), size: 64)),
+                            const SizedBox(height: 24),
+                            const Text('Squeaky Clean!',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 12),
+                            const Text(
+                                'No WhatsApp junk found on your device. Great job keeping your gallery tidy!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 15,
+                                    height: 1.4)),
+                            const SizedBox(height: 32),
+                            SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF25D366),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(16))),
+                                    child: const Text('Awesome',
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold))))
+                          ]))));
+              return;
+            }
+            provider.whatsappGroup!.recalculateCurrentIndex();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SwipeScreen(group: provider.whatsappGroup!),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
         Builder(
           builder: (context) {
             final cards = <Widget>[
@@ -297,12 +353,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Screenshots',
                     count: provider.screenshotsGroup!.totalItems,
                     color: const Color(0xFFF59E0B),
-                    onTap: () => _openGroup(context, provider.screenshotsGroup!),
+                    onTap: () =>
+                        _openGroup(context, provider.screenshotsGroup!),
                   ),
                 ),
               if (provider.totalLargeFilesCount > 0)
                 Expanded(
-                  child: _QuickCard(icon: Icons.video_library_rounded, label: 'Large\nFiles', count: provider.totalLargeFilesCount, color: const Color(0xFFEF4444), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LargeFilesMenuScreen())),),
+                  child: _QuickCard(
+                    icon: Icons.video_library_rounded,
+                    label: 'Large\nFiles',
+                    count: provider.totalLargeFilesCount,
+                    color: const Color(0xFFEF4444),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LargeFilesMenuScreen())),
+                  ),
                 ),
             ];
 
@@ -347,66 +413,70 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         else
           ...(() {
-             if (_showAllMonths) {
-               final cards = provider.monthGroups.map<Widget>((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
-               cards.add(
-                 Padding(
-                   padding: const EdgeInsets.only(top: 8.0, bottom: 20),
-                   child: TextButton(
-                     onPressed: () => setState(() => _showAllMonths = false),
-                     style: TextButton.styleFrom(
-                       foregroundColor: const Color(0xFF6C63FF),
-                     ),
-                     child: const Text('Hide Months', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                   ),
-                 )
-               );
-               return cards;
-             } else {
-               final visibleGroups = <MonthGroup>[];
-               if (provider.monthGroups.isNotEmpty) {
-                 visibleGroups.add(provider.monthGroups.first);
-               }
-               for (var i = 1; i < provider.monthGroups.length; i++) {
-                 final g = provider.monthGroups[i];
-                 if (g.currentIndex > 0 && g.currentIndex < g.items.length) {
-                   visibleGroups.add(g);
-                 }
-               }
-               
-               final cards = visibleGroups.map<Widget>((g) => _MonthCard(group: g, onTap: () => _openGroup(context, g))).toList();
-               
-               if (provider.monthGroups.length > visibleGroups.length) {
-                 cards.add(
-                   Padding(
-                     padding: const EdgeInsets.only(top: 8.0, bottom: 20),
-                     child: TextButton(
-                       onPressed: () => setState(() => _showAllMonths = true),
-                       style: TextButton.styleFrom(
-                         foregroundColor: const Color(0xFF6C63FF),
-                       ),
-                       child: const Text('View All Months', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                     ),
-                   )
-                 );
-               }
-               return cards;
-             }
+            if (_showAllMonths) {
+              final cards = provider.monthGroups
+                  .map<Widget>((g) =>
+                      _MonthCard(group: g, onTap: () => _openGroup(context, g)))
+                  .toList();
+              cards.add(Padding(
+                padding: const EdgeInsets.only(top: 8.0, bottom: 20),
+                child: TextButton(
+                  onPressed: () => setState(() => _showAllMonths = false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF6C63FF),
+                  ),
+                  child: const Text('Hide Months',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                ),
+              ));
+              return cards;
+            } else {
+              final visibleGroups = <MonthGroup>[];
+              if (provider.monthGroups.isNotEmpty) {
+                visibleGroups.add(provider.monthGroups.first);
+              }
+              for (var i = 1; i < provider.monthGroups.length; i++) {
+                final g = provider.monthGroups[i];
+                if (g.currentIndex > 0 && g.currentIndex < g.items.length) {
+                  visibleGroups.add(g);
+                }
+              }
+
+              final cards = visibleGroups
+                  .map<Widget>((g) =>
+                      _MonthCard(group: g, onTap: () => _openGroup(context, g)))
+                  .toList();
+
+              if (provider.monthGroups.length > visibleGroups.length) {
+                cards.add(Padding(
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 20),
+                  child: TextButton(
+                    onPressed: () => setState(() => _showAllMonths = true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF6C63FF),
+                    ),
+                    child: const Text('View All Months',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 16)),
+                  ),
+                ));
+              }
+              return cards;
+            }
           })(),
 
-          if (_showAllMonths && provider.isBackgroundLoading)
-            const Padding(
+        if (_showAllMonths && provider.isBackgroundLoading)
+          const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Center(
-                child: Column(
-                   children: [
-                      CircularProgressIndicator(color: Color(0xFF6C63FF), strokeWidth: 2),
-                      SizedBox(height: 12),
-                      Text("Loading older months in background...", style: TextStyle(color: Colors.white54, fontSize: 13)),
-                   ]
-                )
-              )
-            ),
+                  child: Column(children: [
+                CircularProgressIndicator(
+                    color: Color(0xFF6C63FF), strokeWidth: 2),
+                SizedBox(height: 12),
+                Text("Loading older months in background...",
+                    style: TextStyle(color: Colors.white54, fontSize: 13)),
+              ]))),
       ],
     );
   }
@@ -417,8 +487,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _goToStagingBin(BuildContext context) {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const StagingBinScreen()));
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const StagingBinScreen()));
   }
 }
 
@@ -463,8 +533,8 @@ class _QuickCard extends StatelessWidget {
                     color: color, fontSize: 12, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text('$count items',
-                style:
-                    TextStyle(color: color.withValues(alpha: 0.6), fontSize: 11)),
+                style: TextStyle(
+                    color: color.withValues(alpha: 0.6), fontSize: 11)),
           ],
         ),
       ),
@@ -511,8 +581,8 @@ class _MonthCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${group.totalItems} items',
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ),
@@ -569,7 +639,6 @@ class _MonthCard extends StatelessWidget {
   }
 }
 
-
 class _StorageCircleWidget extends StatelessWidget {
   final GalleryProvider provider;
   const _StorageCircleWidget({required this.provider});
@@ -579,9 +648,9 @@ class _StorageCircleWidget extends StatelessWidget {
     final total = provider.totalDiskSpaceMB ?? 0.0;
     final free = provider.freeDiskSpaceMB ?? 0.0;
     final used = total > 0 ? total - free : 0.0;
-    
+
     final percent = total > 0 ? (used / total) : 0.0;
-    
+
     return Column(
       children: [
         Stack(
@@ -602,7 +671,10 @@ class _StorageCircleWidget extends StatelessWidget {
               children: [
                 Text(
                   '${(percent * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
                 ),
                 const Text(
                   'Used',
@@ -613,11 +685,17 @@ class _StorageCircleWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const Text('Storage', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+        const Text('Storage',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15)),
         if (total > 0)
-           Text('${(free / 1024).toStringAsFixed(1)} GB Free', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          Text('${(free / 1024).toStringAsFixed(1)} GB Free',
+              style: const TextStyle(color: Colors.white54, fontSize: 12)),
         if (total == 0)
-           const Text('Calculating...', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          const Text('Calculating...',
+              style: TextStyle(color: Colors.white54, fontSize: 12)),
       ],
     );
   }
@@ -630,10 +708,11 @@ class _MonthsReviewedWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalMonths = provider.monthGroups.length;
-    final reviewedMonths = provider.monthGroups.where((g) => g.isComplete).length;
-    
+    final reviewedMonths =
+        provider.monthGroups.where((g) => g.isComplete).length;
+
     final percent = totalMonths > 0 ? (reviewedMonths / totalMonths) : 0.0;
-    
+
     return Column(
       children: [
         Stack(
@@ -654,7 +733,10 @@ class _MonthsReviewedWidget extends StatelessWidget {
               children: [
                 Text(
                   '$reviewedMonths / $totalMonths',
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
                 ),
                 const Text(
                   'Months',
@@ -665,17 +747,14 @@ class _MonthsReviewedWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const Text('Reviewed', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-        const Text('Keep it up!', style: TextStyle(color: Colors.white54, fontSize: 12)),
+        const Text('Reviewed',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15)),
+        const Text('Keep it up!',
+            style: TextStyle(color: Colors.white54, fontSize: 12)),
       ],
     );
   }
 }
-
-
-
-
-
-
-
-

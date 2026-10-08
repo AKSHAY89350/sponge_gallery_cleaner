@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:sponge_gallery_cleaner/main.dart';
-import 'package:sponge_gallery_cleaner/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
 
 void main() {
   testWidgets('App launches and shows loading or permission screen',

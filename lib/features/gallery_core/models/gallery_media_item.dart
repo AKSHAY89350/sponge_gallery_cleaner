@@ -73,6 +73,7 @@ class MonthGroup {
       currentIndex = 0;
     }
   }
+
   int get trashedCount =>
       items.where((i) => i.decision == SwipeAction.trash).length;
   int get keptCount =>
@@ -85,7 +86,3 @@ class MonthGroup {
       .where((i) => i.decision == SwipeAction.trash)
       .fold(0, (sum, i) => sum + i.fileSize);
 }
-
-
-
-

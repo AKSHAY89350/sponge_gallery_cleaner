@@ -89,8 +89,7 @@ class PermissionScreen extends StatelessWidget {
                     elevation: 0,
                   ),
                   onPressed: () async {
-                    final result =
-                        await PhotoManager.requestPermissionExtend();
+                    final result = await PhotoManager.requestPermissionExtend();
                     if (result.isAuth) {
                       onGranted();
                     } else {
