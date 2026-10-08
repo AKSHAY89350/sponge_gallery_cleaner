@@ -311,14 +311,18 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
     _loadThumb();
   }
 
-  void _loadThumb() async {
-    final asset = await AssetEntity.fromId(widget.item.id);
-    if (asset != null && mounted) {
-      setState(() {
-        _thumbFuture =
-            asset.thumbnailDataWithSize(const ThumbnailSize.square(256));
-      });
+  @override
+  void didUpdateWidget(covariant _BlurryGridThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id) {
+      _loadThumb();
     }
+  }
+
+  void _loadThumb() {
+    _thumbFuture = AssetEntity.fromId(widget.item.id).then(
+      (entity) => entity?.thumbnailDataWithSize(const ThumbnailSize.square(256))
+    );
   }
 
   @override

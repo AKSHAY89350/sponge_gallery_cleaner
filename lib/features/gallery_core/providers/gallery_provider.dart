@@ -572,7 +572,7 @@ class GalleryProvider extends ChangeNotifier {
           item.isBlurry = false;
         }
         blurryScannedCount++;
-        if (blurryScannedCount % 10 == 0) notifyListeners();
+        if (blurryScannedCount % 50 == 0) notifyListeners();
       }
 
       if (newBlurries.isNotEmpty) {
