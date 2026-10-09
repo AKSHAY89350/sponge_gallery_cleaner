@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';
+import os
+
+path = 'lib/features/media_cleaners/similar_photos_screen.dart'
+content = """import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -381,3 +384,7 @@ class _SimCachedThumbnailState extends State<_SimCachedThumbnail> {
     );
   }
 }
+"""
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Updated SimilarPhotosScreen.")
