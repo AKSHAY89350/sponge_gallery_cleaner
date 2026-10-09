@@ -29,6 +29,12 @@ class _SwipeScreenState extends State<SwipeScreen> {
   final List<GalleryMediaItem> _undoStack = [];
 
   @override
+  void dispose() {
+    _previewScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     // Resume from saved progress

@@ -120,9 +120,8 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (provider.isBlurryScanning)
-                _buildScanningIndicator(
-                    provider.blurryScannedCount, provider.blurryTotalCount),
+              _buildScanningIndicator(
+                  provider.blurryAnalyzedCount, provider.blurryTotalTarget, provider.isBlurryScanning),
               
               if (items.isNotEmpty)
                 Padding(
@@ -201,7 +200,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
     );
   }
 
-  Widget _buildScanningIndicator(int scanned, int total) {
+  Widget _buildScanningIndicator(int scanned, int total, bool isScanning) {
     final percent = total == 0 ? 0.0 : scanned / total;
     return Container(
       padding: const EdgeInsets.all(20),
@@ -238,7 +237,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 12),
-          Text('AI Scanning... $scanned / $total photos analyzed',
+          Text(isScanning ? 'AI Scanning... $scanned / $total photos analyzed' : 'Scan Complete. $scanned / $total photos analyzed',
               style: const TextStyle(color: Colors.white54, fontSize: 13)),
         ],
       ),

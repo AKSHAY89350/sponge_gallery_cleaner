@@ -17,6 +17,8 @@ class GalleryProvider extends ChangeNotifier {
   int blurryScannedCount = 0;
   int blurryTotalCount = 0;
 
+  int get blurryAnalyzedCount => allItems.where((i) => i.isBlurry != null && !i.isVideo).length;
+  int get blurryTotalTarget => allItems.where((i) => !i.isVideo).length;
   bool get hasUnscannedBlurry =>
       allItems.any((i) => i.isBlurry == null && !i.isVideo);
 
