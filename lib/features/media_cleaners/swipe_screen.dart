@@ -126,18 +126,22 @@ class _SwipeScreenState extends State<SwipeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: _buildAppBar(),
-      body: Column(
+      body: Stack(
         children: [
-          _buildProgressBar(),
-          if (!_isDone && !_isGridView) _buildTopPreviewStrip(),
-          Expanded(
-              child: _isDone
-                  ? _buildDoneView()
-                  : (_isGridView ? _buildGridView() : _buildCardArea())),
-          if (!_isDone && !_isGridView) ...[
-            _buildControls(),
-            const SizedBox(height: 24)
-          ],
+          Column(
+            children: [
+              _buildProgressBar(),
+              if (!_isDone && !_isGridView) _buildTopPreviewStrip(),
+              Expanded(
+                  child: _isDone
+                      ? _buildDoneView()
+                      : (_isGridView ? _buildGridView() : _buildCardArea())),
+              if (!_isDone && !_isGridView) ...[
+                _buildControls(),
+                const SizedBox(height: 24)
+              ],
+            ],
+          ),
           if (!_isDone && _isGridView && _selectedIds.isNotEmpty)
             _buildGridControls(),
         ],
@@ -586,7 +590,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
     // Group by Date (Day)
     final Map<String, List<GalleryMediaItem>> itemsByDate = {};
     for (final item in remainingItems) {
-      final dateLabel = DateFormat('MMM d, yyyy').format(item.dateTime);
+      final dateLabel = DateFormat('MMM d').format(item.dateTime);
       itemsByDate.putIfAbsent(dateLabel, () => []).add(item);
     }
 
@@ -602,33 +606,49 @@ class _SwipeScreenState extends State<SwipeScreen> {
       slivers.add(
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 4, 8),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(dateLabel,
                     style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: Icon(
-                    allSelected
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color:
-                        allSelected ? const Color(0xFF6C63FF) : Colors.white54,
-                  ),
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
+                GestureDetector(
+                  onTap: () {
                     setState(() {
                       if (allSelected) {
-                        for (final i in dateItems) _selectedIds.remove(i.id);
+                        for (final i in dateItems) {
+                          _selectedIds.remove(i.id);
+                        }
                       } else {
-                        for (final i in dateItems) _selectedIds.add(i.id);
+                        for (final i in dateItems) {
+                          _selectedIds.add(i.id);
+                        }
                       }
                     });
                   },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('Select All', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const SizedBox(width: 6),
+                        Icon(
+                          allSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          color: allSelected ? const Color(0xFF7C3AED) : Colors.white54,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -642,10 +662,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
+              crossAxisCount: 4,
               mainAxisSpacing: 8,
-              childAspectRatio: 1,
+              crossAxisSpacing: 8,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -653,17 +672,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                 final isSelected = _selectedIds.contains(item.id);
 
                 return GestureDetector(
-                  onLongPress: () {
-                    HapticFeedback.heavyImpact();
-                    showDialog(
-                      context: context,
-                      barrierColor: Colors.black.withValues(alpha: 0.9),
-                      builder: (_) => UniversalPreviewDialog(
-                          items: dateItems, initialIndex: index),
-                    );
-                  },
                   onTap: () {
-                    HapticFeedback.selectionClick();
                     setState(() {
                       if (isSelected) {
                         _selectedIds.remove(item.id);
@@ -672,36 +681,42 @@ class _SwipeScreenState extends State<SwipeScreen> {
                       }
                     });
                   },
+                  onLongPress: () {
+                    HapticFeedback.heavyImpact();
+                    showDialog(
+                      context: context,
+                      barrierColor: Colors.black.withOpacity(0.9),
+                      builder: (_) => UniversalPreviewDialog(
+                          items: remainingItems,
+                          initialIndex: remainingItems.indexOf(item)),
+                    );
+                  },
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF6C63FF)
-                            : Colors.transparent,
-                        width: 3,
+                        color: isSelected ? const Color(0xFF7C3AED) : Colors.transparent,
+                        width: 2.5,
                       ),
                     ),
-                    clipBehavior: Clip.hardEdge,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _CachedMediaThumbnail(
-                            item: item, size: 300, quality: 60),
-                        if (item.isVideo)
-                          const Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Icon(Icons.play_circle_fill,
-                                color: Colors.white, size: 20),
-                          ),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(9),
+                          child: _CachedMediaThumbnail(item: item),
+                        ),
                         if (isSelected)
-                          Container(
-                            color:
-                                const Color(0xFF6C63FF).withValues(alpha: 0.3),
-                            child: const Center(
-                              child: Icon(Icons.check_circle_rounded,
-                                  color: Colors.white, size: 32),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF7C3AED),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
                             ),
                           ),
                       ],
@@ -716,8 +731,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
       );
     }
 
-    // Bottom padding for controls
-    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 100)));
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 120)));
 
     return CustomScrollView(
       slivers: slivers,
