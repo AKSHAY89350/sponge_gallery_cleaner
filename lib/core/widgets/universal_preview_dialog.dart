@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/video_card_player.dart';
 
 class UniversalPreviewDialog extends StatefulWidget {
   final List<GalleryMediaItem> items;
@@ -169,7 +170,11 @@ class _PreviewPageState extends State<_PreviewPage> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.pop(context),
+      onTap: () {
+        if (!widget.item.isVideo) {
+           Navigator.pop(context);
+        }
+      },
       child: InteractiveViewer(
         minScale: 1.0,
         maxScale: 4.0,
@@ -181,7 +186,14 @@ class _PreviewPageState extends State<_PreviewPage> {
                   child: CircularProgressIndicator(color: Colors.white));
             }
             if (snap.hasData && snap.data != null) {
-              return Image.memory(snap.data!, fit: BoxFit.contain);
+              final thumb = Image.memory(snap.data!, fit: BoxFit.contain);
+              if (widget.item.isVideo) {
+                return VideoCardPlayer(
+                  item: widget.item,
+                  thumbnailWidget: thumb,
+                );
+              }
+              return thumb;
             }
             return const Center(child: Icon(Icons.error, color: Colors.white));
           },
