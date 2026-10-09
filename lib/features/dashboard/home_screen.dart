@@ -538,7 +538,7 @@ class _ReviewTab extends StatelessWidget {
     // We wrap it in a Navigator so it has its own routing if needed, 
     // but just placing the widget is easier. Actually SwipeScreen uses Scaffold,
     // so it's perfectly fine to place it here.
-    return SwipeScreen(group: targetGroup, isEmbedded: true);
+    return SwipeScreen(key: ValueKey(targetGroup.yearMonthKey), group: targetGroup, isEmbedded: true);
   }
 }
 
