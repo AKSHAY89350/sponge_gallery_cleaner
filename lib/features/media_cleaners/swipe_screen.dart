@@ -33,6 +33,9 @@ class _SwipeScreenState extends State<SwipeScreen> {
     super.initState();
     // Resume from saved progress
     _currentIndex = widget.group.currentIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrent();
+    });
   }
 
   GalleryMediaItem? get _currentItem {
@@ -91,17 +94,12 @@ class _SwipeScreenState extends State<SwipeScreen> {
   }
 
   void _scrollToCurrent() {
-    if (!_previewScrollController.hasClients) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_previewScrollController.hasClients) return;
-      final itemWidth = 52.0;
-      final screenWidth = MediaQuery.of(context).size.width;
-      final targetOffset =
-          (_currentIndex * itemWidth) - (screenWidth / 2) + (itemWidth / 2);
-
+      final targetOffset = _currentIndex * 52.0;
+      
       _previewScrollController.animateTo(
-        targetOffset.clamp(
-            0.0, _previewScrollController.position.maxScrollExtent),
+        targetOffset.clamp(0.0, _previewScrollController.position.maxScrollExtent),
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
