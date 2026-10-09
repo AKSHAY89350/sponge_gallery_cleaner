@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
+
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
-import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
 
 class BlurryPhotosScreen extends StatefulWidget {
   const BlurryPhotosScreen({super.key});
@@ -17,178 +17,229 @@ class BlurryPhotosScreen extends StatefulWidget {
 
 class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
   final Set<String> _selectedIds = {};
+  bool _isDeleting = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        context.read<GalleryProvider>().scanMoreBlurry();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<GalleryProvider>();
+      if (provider.hasUnscannedBlurry && !provider.isBlurryScanning) {
+        provider.scanMoreBlurry();
       }
+    });
+  }
+
+  void _bulkTrash(BuildContext context, GalleryProvider provider) {
+    if (_selectedIds.isEmpty) return;
+    HapticFeedback.mediumImpact();
+
+    final itemsToTrash = provider.blurryGroup?.items
+            .where((i) => _selectedIds.contains(i.id))
+            .toList() ??
+        [];
+    provider.bulkAddToStagingBin(itemsToTrash);
+
+    setState(() {
+      _selectedIds.clear();
+      provider.blurryGroup?.recalculateCurrentIndex();
+    });
+  }
+
+  void _bulkKeep(BuildContext context, GalleryProvider provider) {
+    if (_selectedIds.isEmpty) return;
+    HapticFeedback.lightImpact();
+
+    final itemsToKeep = provider.blurryGroup?.items
+            .where((i) => _selectedIds.contains(i.id))
+            .toList() ??
+        [];
+    provider.bulkKeepItems(itemsToKeep);
+
+    setState(() {
+      _selectedIds.clear();
+      provider.blurryGroup?.recalculateCurrentIndex();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GalleryProvider>();
-    final isScanning = provider.isBlurryScanning;
-    final total = provider.blurryTotalCount;
-    final scanned = provider.blurryScannedCount;
-    final group = provider.blurryGroup;
+    final items = provider.blurryGroup?.items.where((i) => i.decision == null).toList() ?? [];
 
-    final blurryItems =
-        group?.items.where((i) => i.decision == null).toList() ?? [];
+    final isAllSelected = items.isNotEmpty && _selectedIds.length == items.length;
+
+    // Calculate selected size
+    final selectedItems = items.where((i) => _selectedIds.contains(i.id)).toList();
+    final selectedSize = selectedItems.fold(0, (sum, i) => sum + i.fileSize);
+    final sizeFormatted = _formatSize(selectedSize);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Blurry Photos',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: true,
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold)),
+        centerTitle: false,
         actions: [
-          if (group != null && group.totalItems > 0)
-            Builder(builder: (context) {
-              final totalBlurry = group.totalItems;
-              final resolvedCount = totalBlurry - blurryItems.length;
-              final percent =
-                  totalBlurry == 0 ? 0.0 : resolvedCount / totalBlurry;
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 38,
-                        height: 38,
-                        child: CircularProgressIndicator(
-                          value: percent,
-                          backgroundColor: Colors.white10,
-                          color: Colors.orangeAccent,
-                          strokeWidth: 3,
-                        ),
-                      ),
-                      Text(
-                        '${(percent * 100).toInt()}%',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ],
+          if (items.isNotEmpty)
+            Row(
+              children: [
+                const Text('Select All',
+                    style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(width: 4),
+                Switch(
+                  value: isAllSelected,
+                  activeColor: const Color(0xFF10B981),
+                  onChanged: (val) {
+                    setState(() {
+                      if (val) {
+                        _selectedIds.addAll(items.map((i) => i.id));
+                      } else {
+                        _selectedIds.clear();
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+        ],
+      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (provider.isBlurryScanning)
+                _buildScanningIndicator(
+                    provider.blurryScannedCount, provider.blurryTotalCount),
+              
+              if (items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text(
+                    '${items.length} blurry photos identified',
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ),
-              );
-            }),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (isScanning) _buildScanningIndicator(scanned, total),
-          Expanded(
-            child: blurryItems.isEmpty && !isScanning
-                ? _buildEmptyState((group?.totalItems ?? 0) > 0)
-                : _buildResultsList(blurryItems, group),
-          ),
-        ],
-      ),
-      floatingActionButton: _selectedIds.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  FloatingActionButton.extended(
-                    heroTag: 'keep_btn',
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      final itemsToKeep = blurryItems
-                          .where((i) => _selectedIds.contains(i.id))
-                          .toList();
-                      provider.bulkKeepItems(itemsToKeep);
-                      setState(() {
-                        _selectedIds.clear();
-                      });
-                    },
-                    backgroundColor: Colors.green,
-                    icon:
-                        const Icon(Icons.favorite_rounded, color: Colors.white),
-                    label: Text('Keep (${_selectedIds.length})',
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                  FloatingActionButton.extended(
-                    heroTag: 'trash_btn',
-                    onPressed: () {
-                      HapticFeedback.heavyImpact();
-                      final itemsToTrash = blurryItems
-                          .where((i) => _selectedIds.contains(i.id))
-                          .toList();
-                      provider.bulkAddToStagingBin(itemsToTrash);
-                      setState(() {
-                        _selectedIds.clear();
-                      });
-                    },
-                    backgroundColor: Colors.redAccent,
-                    icon: const Icon(Icons.delete_rounded, color: Colors.white),
-                    label: Text('Trash (${_selectedIds.length})',
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+
+              Expanded(
+                child: items.isEmpty
+                    ? _buildEmptyState(!provider.hasUnscannedBlurry)
+                    : _buildResultsList(items),
               ),
-            )
-          : (blurryItems.isNotEmpty && !isScanning
-              ? FloatingActionButton.extended(
-                  onPressed: () {
-                    group!.recalculateCurrentIndex();
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => SwipeScreen(group: group)));
-                  },
-                  backgroundColor: Colors.orangeAccent,
-                  icon: const Icon(Icons.cleaning_services_rounded,
-                      color: Colors.black),
-                  label: const Text('Review Blurry Photos',
-                      style: TextStyle(
-                          color: Colors.black, fontWeight: FontWeight.bold)),
-                )
-              : null),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+            ],
+          ),
+
+          // Sticky Bottom Bar
+          if (_selectedIds.isNotEmpty)
+            Positioned(
+              bottom: 24,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1E26),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.8),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _bulkKeep(context, provider),
+                        icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                        label: const Text('Keep Selected', style: TextStyle(fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                          foregroundColor: const Color(0xFF10B981),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _bulkTrash(context, provider),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                        label: Text('Trash ($sizeFormatted)', style: const TextStyle(fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildScanningIndicator(int scanned, int total) {
     final percent = total == 0 ? 0.0 : scanned / total;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
+        color: const Color(0xFF1C1E26),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Analyzing Sharpness (AI)...',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('AI Analysis Progress',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              Text('${(percent * 100).toInt()}%',
+                  style: const TextStyle(
+                      color: Color(0xFF2DD4BF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
           const SizedBox(height: 16),
           LinearProgressIndicator(
             value: percent,
             backgroundColor: Colors.white10,
-            color: Colors.orangeAccent,
+            color: const Color(0xFF2DD4BF),
             minHeight: 8,
             borderRadius: BorderRadius.circular(4),
           ),
           const SizedBox(height: 12),
-          Text('\ / \ photos processed',
-              style: const TextStyle(color: Colors.white54, fontSize: 14)),
+          Text('AI Scanning... $scanned / $total photos analyzed',
+              style: const TextStyle(color: Colors.white54, fontSize: 13)),
         ],
       ),
     );
@@ -226,35 +277,18 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
           Text(
               isAllCaughtUp
                   ? 'You have resolved all blurry photos.'
-                  : 'We couldn' 't find any blurry\nor out-of-focus photos.',
+                  : "We couldn't find any blurry\nor out-of-focus photos.",
               textAlign: TextAlign.center,
               style: const TextStyle(
                   color: Colors.white54, fontSize: 15, height: 1.4)),
-          const SizedBox(height: 32),
-          if (isAllCaughtUp)
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-              ),
-              child: const Text('Back to Home',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildResultsList(List<GalleryMediaItem> items, MonthGroup? group) {
-    if (items.isEmpty) return const SizedBox.shrink();
-
+  Widget _buildResultsList(List<GalleryMediaItem> items) {
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 8,
@@ -282,6 +316,13 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
       },
     );
   }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
 }
 
 class _BlurryGridThumbnail extends StatefulWidget {
@@ -291,8 +332,7 @@ class _BlurryGridThumbnail extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
   const _BlurryGridThumbnail(
-      {super.key,
-      required this.item,
+      {required this.item,
       required this.allItems,
       required this.index,
       required this.isSelected,
@@ -343,10 +383,10 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: widget.isSelected
-                ? const Color(0xFF6C63FF)
+                ? const Color(0xFF10B981)
                 : Colors.transparent,
             width: 3,
           ),
@@ -359,37 +399,32 @@ class _BlurryGridThumbnailState extends State<_BlurryGridThumbnail> {
               future: _thumbFuture,
               builder: (ctx, snap) {
                 if (snap.connectionState == ConnectionState.waiting) {
-                  return Container(color: const Color(0xFF252525));
+                  return Container(color: const Color(0xFF1C1E26));
                 }
                 if (snap.hasData && snap.data != null) {
                   return Image.memory(snap.data!,
                       fit: BoxFit.cover, gaplessPlayback: true);
                 }
-                return Container(color: const Color(0xFF252525));
+                return Container(color: const Color(0xFF1C1E26));
               },
             ),
+            
+            // Top Right Checkbox
             Positioned(
-              bottom: 4,
-              right: 4,
+              top: 6,
+              right: 6,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4)),
-                child: const Text('Blurry',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold)),
+                  shape: BoxShape.circle,
+                  color: widget.isSelected ? Colors.white : Colors.black.withValues(alpha: 0.3),
+                ),
+                child: Icon(
+                  widget.isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  color: widget.isSelected ? const Color(0xFF10B981) : Colors.white,
+                  size: 24,
+                ),
               ),
             ),
-            if (widget.isSelected)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: const Icon(Icons.check_circle_rounded,
-                    color: Color(0xFF6C63FF), size: 24),
-              ),
           ],
         ),
       ),
