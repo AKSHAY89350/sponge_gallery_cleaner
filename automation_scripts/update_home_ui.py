@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart';
+import os
+
+path = 'lib/features/dashboard/home_screen.dart'
+
+content = """import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
@@ -215,7 +219,7 @@ class _HomeTab extends StatelessWidget {
           children: [
             Expanded(child: _buildSmartCard(
               context: context,
-              title: 'Similar\nPhotos',
+              title: 'Similar\\nPhotos',
               count: provider.similarPhotoGroups.expand((e) => e).where((i) => i.decision == null).length,
               icon: Icons.photo_library_rounded,
               color: const Color(0xFFC026D3),
@@ -224,7 +228,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: _buildSmartCard(
               context: context,
-              title: 'Blurry\nPhotos',
+              title: 'Blurry\\nPhotos',
               count: provider.blurryGroup?.items.where((i) => i.decision == null).length ?? 0,
               icon: Icons.blur_on_rounded,
               color: const Color(0xFFF59E0B),
@@ -237,7 +241,7 @@ class _HomeTab extends StatelessWidget {
           children: [
             Expanded(child: _buildSmartCard(
               context: context,
-              title: 'WhatsApp\nJunk',
+              title: 'WhatsApp\\nJunk',
               count: provider.whatsappGroup?.items.where((i) => i.decision == null).length ?? 0,
               icon: Icons.chat_bubble_rounded,
               color: const Color(0xFF10B981),
@@ -246,7 +250,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: _buildSmartCard(
               context: context,
-              title: 'Random\nClean',
+              title: 'Random\\nClean',
               count: provider.randomGroup?.items.where((i) => i.decision == null).length ?? 0,
               icon: Icons.shuffle_rounded,
               color: const Color(0xFF3B82F6),
@@ -273,7 +277,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: _buildSmartCard(
               context: context,
-              title: 'Large\nFiles',
+              title: 'Large\\nFiles',
               count: provider.totalLargeFilesCount,
               icon: Icons.video_library_rounded,
               color: const Color(0xFFEF4444),
@@ -324,7 +328,7 @@ class _HomeTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title.replaceAll('\\n', '\n'),
+                    title.replaceAll('\\\\n', '\\n'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -538,7 +542,7 @@ class _ReviewTab extends StatelessWidget {
     // We wrap it in a Navigator so it has its own routing if needed, 
     // but just placing the widget is easier. Actually SwipeScreen uses Scaffold,
     // so it's perfectly fine to place it here.
-    return SwipeScreen(group: targetGroup, isEmbedded: true);
+    return SwipeScreen(group: targetGroup);
   }
 }
 
@@ -570,3 +574,9 @@ class _SettingsTab extends StatelessWidget {
     );
   }
 }
+"""
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print("Replaced home_screen.dart")

@@ -11,7 +11,8 @@ import 'package:intl/intl.dart';
 
 class SwipeScreen extends StatefulWidget {
   final MonthGroup group;
-  const SwipeScreen({super.key, required this.group});
+  final bool isEmbedded;
+  const SwipeScreen({super.key, required this.group, this.isEmbedded = false});
 
   @override
   State<SwipeScreen> createState() => _SwipeScreenState();
@@ -149,7 +150,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      leading: IconButton(
+      leading: widget.isEmbedded ? const SizedBox.shrink() : IconButton(
         icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
         onPressed: () => Navigator.pop(context),
       ),
