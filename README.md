@@ -73,7 +73,7 @@ Sponge is built with a bank-grade security mindset:
 
 ## 📦 Download Latest Build
 You can download the latest production-ready APK directly from this repository.
-* **Direct Download:** [Download Sponge Cleaner v4.1](https://github.com/AKSHAY89350/sponge_gallery_cleaner/raw/master/release_apk/sponge_gallery_cleaner_v4.1.apk)
+* **Direct Download:** [Download Sponge Cleaner v4.2](https://github.com/AKSHAY89350/sponge_gallery_cleaner/raw/master/releases/Sponge_Gallery_Cleaner_V4.2.apk)
 * **Installation:** Transfer the APK to your Android device, open it, and select "Install". (You may need to allow "Install from Unknown Sources" in your phone settings).
 
 ---
