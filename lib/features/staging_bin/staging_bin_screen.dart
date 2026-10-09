@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
@@ -15,164 +16,10 @@ class StagingBinScreen extends StatefulWidget {
 class _StagingBinScreenState extends State<StagingBinScreen> {
   bool _isDeleting = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<GalleryProvider>();
-    final items = provider.stagingBin;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          children: [
-            const Text(
-              'Trash Bin 🗑️',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600),
-            ),
-            Text(
-              '${items.length} items staged',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
-        ),
-        centerTitle: true,
-      ),
-      body: items.isEmpty
-          ? _buildEmpty()
-          : _buildContent(context, provider, items),
-    );
-  }
-
-  Widget _buildEmpty() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('🗑️', style: TextStyle(fontSize: 64)),
-          SizedBox(height: 20),
-          Text('Trash is empty',
-              style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
-          SizedBox(height: 8),
-          Text(
-            'Swipe left on photos to add them here',
-            style: TextStyle(color: Colors.white30, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(
-    BuildContext context,
-    GalleryProvider provider,
-    List<GalleryMediaItem> items,
-  ) {
-    return Column(
-      children: [
-        // Warning banner
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange.withValues(alpha: 0.25)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.info_outline_rounded,
-                  color: Colors.orange, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Tap any photo to restore it. Press Delete to permanently remove all ${items.length} items.',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Photo grid
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              return _ThumbnailTile(item: items[index]);
-            },
-          ),
-        ),
-        // Delete CTA
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            children: [
-              // Size freed info
-              Text(
-                'Frees ${provider.totalFreedFormatted} of storage',
-                style: const TextStyle(color: Colors.white38, fontSize: 13),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  onPressed: _isDeleting
-                      ? null
-                      : () => _confirmAndDelete(context, provider),
-                  child: _isDeleting
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : Text(
-                          'Permanently Delete All (${items.length})',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _confirmAndDelete(
-      BuildContext context, GalleryProvider provider) async {
-    // Capture context-dependent objects BEFORE any await
+  Future<void> _confirmAndDelete(BuildContext context, GalleryProvider provider) async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-
+    
     if (mounted) {
       setState(() => _isDeleting = true);
       try {
@@ -183,17 +30,8 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
             navigator.pop();
             messenger.showSnackBar(
               SnackBar(
-                content: Text(
-                    '✅ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
+                content: Text('✨ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
                 backgroundColor: const Color(0xFF10B981),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          } else {
-            messenger.showSnackBar(
-              const SnackBar(
-                content: Text('⚠️ Deletion cancelled or denied by system.'),
-                backgroundColor: Colors.orange,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -204,7 +42,7 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
           setState(() => _isDeleting = false);
           messenger.showSnackBar(
             const SnackBar(
-              content: Text('❌ Error deleting items. System rejected request.'),
+              content: Text('Failed to delete some items. They might be locked.'),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
             ),
@@ -213,103 +51,292 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
       }
     }
   }
-}
 
-// ── Thumbnail Grid Tile ───────────────────────────────────────────────────────
-
-class _ThumbnailTile extends StatelessWidget {
-  final GalleryMediaItem item;
-  const _ThumbnailTile({required this.item});
+  String _formatSize(int bytes) {
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        // Tap to restore from staging bin
-        context.read<GalleryProvider>().removeFromStagingBin(item);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo restored ↩️'),
-            duration: Duration(seconds: 1),
-            behavior: SnackBarBehavior.floating,
+    final provider = context.watch<GalleryProvider>();
+    final items = provider.stagingBin;
+
+    if (items.isEmpty) {
+      return _buildEmptyState(context);
+    }
+
+    final totalSize = items.fold(0, (sum, item) => sum + item.fileSize);
+    final sizeFormatted = _formatSize(totalSize);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D0D),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Trash Bin',
+          style: TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
+        actions: [
+          TextButton(
+            onPressed: _isDeleting ? null : () => _confirmAndDelete(context, provider),
+            child: const Text('Empty All',
+                style: TextStyle(color: Colors.white70, fontSize: 14)),
           ),
-        );
-      },
-      child: Stack(
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Stack(
         fit: StackFit.expand,
         children: [
-          // Thumbnail
-          _StagingCachedThumbnail(item: item),
-          // Red delete overlay
-          Container(color: Colors.red.withValues(alpha: 0.25)),
-          // Restore icon
-          const Center(
-            child: Icon(Icons.restore_from_trash_rounded,
-                color: Colors.white70, size: 22),
+          Column(
+            children: [
+              // Warning Card
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C1E26),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Items here will be permanently deleted from your device.',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.warning_amber_rounded, color: Colors.white.withValues(alpha: 0.5), size: 24),
+                  ],
+                ),
+              ),
+              
+              // Grid
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    return _TrashBinThumbnail(item: items[index]);
+                  },
+                ),
+              ),
+            ],
           ),
-          // Video badge
-          if (item.isVideo)
-            const Positioned(
-              bottom: 4,
-              left: 4,
-              child: Icon(Icons.play_circle_filled_rounded,
-                  color: Colors.white, size: 18),
+
+          // Floating Bottom Bar
+          Positioned(
+            bottom: 24,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C1E26),
+                borderRadius: BorderRadius.circular(32),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  ),
+                  onPressed: _isDeleting ? null : () => _confirmAndDelete(context, provider),
+                  child: _isDeleting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          'Permanently Delete ($sizeFormatted)',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
             ),
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0D0D),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_outline_rounded,
+                  color: Colors.white54, size: 72),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Trash is Empty',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No items waiting to be deleted.',
+              style: TextStyle(color: Colors.white54, fontSize: 15),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _StagingCachedThumbnail extends StatefulWidget {
+class _TrashBinThumbnail extends StatefulWidget {
   final GalleryMediaItem item;
-  const _StagingCachedThumbnail({required this.item});
+  const _TrashBinThumbnail({required this.item});
 
   @override
-  State<_StagingCachedThumbnail> createState() =>
-      _StagingCachedThumbnailState();
+  State<_TrashBinThumbnail> createState() => _TrashBinThumbnailState();
 }
 
-class _StagingCachedThumbnailState extends State<_StagingCachedThumbnail> {
-  Future<Uint8List?>? _future;
+class _TrashBinThumbnailState extends State<_TrashBinThumbnail> {
+  Future<Uint8List?>? _thumbFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadFuture();
-  }
-
-  @override
-  void didUpdateWidget(covariant _StagingCachedThumbnail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.id != widget.item.id) {
-      _loadFuture();
-    }
-  }
-
-  void _loadFuture() {
-    _future = AssetEntity.fromId(widget.item.id).then(
-      (entity) => entity?.thumbnailDataWithSize(
-        const ThumbnailSize.square(200),
-        quality: 80,
-      ),
+    _thumbFuture = AssetEntity.fromId(widget.item.id).then(
+      (entity) => entity?.thumbnailDataWithSize(const ThumbnailSize.square(256))
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: _future,
-      builder: (ctx, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return Container(color: const Color(0xFF252525));
-        }
-        if (snap.hasData && snap.data != null) {
-          return Image.memory(snap.data!,
-              fit: BoxFit.cover, gaplessPlayback: true);
-        }
-        return Container(color: const Color(0xFF252525));
-      },
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF1C1E26),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FutureBuilder<Uint8List?>(
+            future: _thumbFuture,
+            builder: (ctx, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
+              }
+              if (snap.hasData && snap.data != null) {
+                return Image.memory(snap.data!, fit: BoxFit.cover, gaplessPlayback: true);
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          
+          // Red Tint Overlay
+          Container(color: Colors.red.withValues(alpha: 0.15)),
+          
+          // Top Right Restore Button
+          Positioned(
+            top: 6,
+            right: 6,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                context.read<GalleryProvider>().removeFromStagingBin(widget.item);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Photo restored ✅'),
+                    duration: Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.replay_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+          
+          // Video indicator
+          if (widget.item.isVideo)
+            Positioned(
+              bottom: 6,
+              left: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: 12),
+                    SizedBox(width: 2),
+                    Text('Video', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
