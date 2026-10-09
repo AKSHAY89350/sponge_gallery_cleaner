@@ -629,6 +629,10 @@ class GalleryProvider extends ChangeNotifier {
     } finally {
       isBlurryScanning = false;
       notifyListeners();
+      
+      if (hasUnscannedBlurry) {
+        Future.microtask(() => scanMoreBlurry());
+      }
     }
   }
 
