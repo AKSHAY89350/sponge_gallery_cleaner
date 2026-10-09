@@ -416,7 +416,7 @@ class _HomeTab extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '$percent%  >',
+                        '$percent%',
                         style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ],

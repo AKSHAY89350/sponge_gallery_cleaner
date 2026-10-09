@@ -706,6 +706,19 @@ class _SwipeScreenState extends State<SwipeScreen> {
                           borderRadius: BorderRadius.circular(9),
                           child: _CachedMediaThumbnail(item: item),
                         ),
+                        if (item.isVideo)
+                          Positioned(
+                            bottom: 6,
+                            right: 6,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                            ),
+                          ),
                         if (isSelected)
                           Positioned(
                             top: 4,
