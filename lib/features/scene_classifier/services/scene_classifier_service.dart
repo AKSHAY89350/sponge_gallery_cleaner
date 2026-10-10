@@ -106,8 +106,18 @@ class SceneClassifierService {
     if (isScanning) return;
     isScanning = true;
 
+    final Set<String> foodIds = {};
+    final Set<String> sceneryIds = {};
+    final Set<String> docIds = {};
+    SharedPreferences? prefsInstance;
+
     try {
       final prefs = await SharedPreferences.getInstance();
+      prefsInstance = prefs;
+      foodIds.addAll(prefs.getStringList('scene_food_ids') ?? []);
+      sceneryIds.addAll(prefs.getStringList('scene_scenery_ids') ?? []);
+      docIds.addAll(prefs.getStringList('scene_document_ids') ?? []);
+
       final tempDir = Directory.systemTemp;
       final tempScanFile = File('${tempDir.path}/scene_scan_temp.jpg');
 
@@ -124,10 +134,6 @@ class SceneClassifierService {
       onProgress();
 
       final processList = unscanned.take(batchLimit).toList();
-
-      final foodIds = prefs.getStringList('scene_food_ids')?.toSet() ?? {};
-      final sceneryIds = prefs.getStringList('scene_scenery_ids')?.toSet() ?? {};
-      final docIds = prefs.getStringList('scene_document_ids')?.toSet() ?? {};
 
       for (int i = 0; i < processList.length; i++) {
         if (!isScanning) break;
@@ -162,10 +168,12 @@ class SceneClassifierService {
                 }
               }
 
+              bool hasNewCategory = false;
               if (isFood) {
                 if (!foodPhotos.any((it) => it.id == item.id)) {
                   foodPhotos.add(item);
                   foodIds.add(item.id);
+                  hasNewCategory = true;
                 }
               }
 
@@ -173,6 +181,7 @@ class SceneClassifierService {
                 if (!sceneryPhotos.any((it) => it.id == item.id)) {
                   sceneryPhotos.add(item);
                   sceneryIds.add(item.id);
+                  hasNewCategory = true;
                 }
               }
 
@@ -180,7 +189,14 @@ class SceneClassifierService {
                 if (!documentPhotos.any((it) => it.id == item.id)) {
                   documentPhotos.add(item);
                   docIds.add(item.id);
+                  hasNewCategory = true;
                 }
+              }
+
+              if (hasNewCategory) {
+                await prefs.setStringList('scene_food_ids', foodIds.toList());
+                await prefs.setStringList('scene_scenery_ids', sceneryIds.toList());
+                await prefs.setStringList('scene_document_ids', docIds.toList());
               }
             }
           }
@@ -194,13 +210,14 @@ class SceneClassifierService {
           onProgress();
         }
       }
-
-      await prefs.setStringList('scene_food_ids', foodIds.toList());
-      await prefs.setStringList('scene_scenery_ids', sceneryIds.toList());
-      await prefs.setStringList('scene_document_ids', docIds.toList());
     } catch (e) {
       debugPrint('Scene classification error: $e');
     } finally {
+      if (prefsInstance != null) {
+        await prefsInstance.setStringList('scene_food_ids', foodIds.toList());
+        await prefsInstance.setStringList('scene_scenery_ids', sceneryIds.toList());
+        await prefsInstance.setStringList('scene_document_ids', docIds.toList());
+      }
       isScanning = false;
       onProgress();
     }
