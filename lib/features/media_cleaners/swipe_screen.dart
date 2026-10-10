@@ -1072,7 +1072,6 @@ class _CachedMediaThumbnail extends StatefulWidget {
   final BoxFit fit;
 
   const _CachedMediaThumbnail({
-    super.key,
     required this.item,
     this.size = 800,
     this.quality = 85,

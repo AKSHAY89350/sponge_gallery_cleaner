@@ -7,6 +7,7 @@ import 'package:sponge_gallery_cleaner/features/media_cleaners/similar_photos_sc
 import 'package:sponge_gallery_cleaner/features/media_cleaners/blurry_photos_screen.dart';
 import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.dart';
 import 'package:sponge_gallery_cleaner/features/media_cleaners/large_files_menu_screen.dart';
+import 'package:sponge_gallery_cleaner/features/storage_analyzer/screens/storage_breakdown_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,10 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFF0F1115),
       body: IndexedStack(
         index: _currentIndex,
-        children: [
-          const _HomeTab(),
-          const _ReviewTab(),
-          const _SettingsTab(),
+        children: const [
+          _HomeTab(),
+          _ReviewTab(),
+          _SettingsTab(),
         ],
       ),
       bottomNavigationBar: Theme(
@@ -113,7 +114,7 @@ class _HomeTab extends StatelessWidget {
           children: [
             _buildTopHeader(context, provider),
             const SizedBox(height: 32),
-            _buildCircles(provider),
+            _buildCircles(context, provider),
             const SizedBox(height: 36),
             _buildSmartClean(context, provider),
             const SizedBox(height: 36),
@@ -130,9 +131,9 @@ class _HomeTab extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Sponge 🧽',
               style: TextStyle(
@@ -204,7 +205,7 @@ class _HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildCircles(GalleryProvider provider) {
+  Widget _buildCircles(BuildContext context, GalleryProvider provider) {
     final totalMB = provider.totalDiskSpaceMB ?? 0.0;
     final freeMB = provider.freeDiskSpaceMB ?? 0.0;
     final usedMB = totalMB > 0 ? totalMB - freeMB : 0.0;
@@ -228,6 +229,15 @@ class _HomeTab extends StatelessWidget {
           bottomTitle: 'Storage',
           bottomSub: '$freeGB GB Free',
           color: const Color(0xFF7C3AED),
+          showTapHint: true,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StorageBreakdownScreen(),
+              ),
+            );
+          },
         ),
         _CircularStat(
           percent: reviewPercent,
@@ -244,9 +254,9 @@ class _HomeTab extends StatelessWidget {
   Widget _buildSmartClean(BuildContext context, GalleryProvider provider) {
     return Column(
       children: [
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
+          children: [
             Text(
               'Smart clean',
               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
@@ -495,6 +505,8 @@ class _CircularStat extends StatelessWidget {
   final String bottomTitle;
   final String bottomSub;
   final Color color;
+  final VoidCallback? onTap;
+  final bool showTapHint;
 
   const _CircularStat({
     required this.percent,
@@ -503,11 +515,13 @@ class _CircularStat extends StatelessWidget {
     required this.bottomTitle,
     required this.bottomSub,
     required this.color,
+    this.onTap,
+    this.showTapHint = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       children: [
         SizedBox(
           width: 110,
@@ -543,9 +557,22 @@ class _CircularStat extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          bottomTitle,
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              bottomTitle,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (showTapHint) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_forward_ios_rounded, color: color, size: 12),
+            ],
+          ],
         ),
         const SizedBox(height: 4),
         Text(
@@ -554,6 +581,15 @@ class _CircularStat extends StatelessWidget {
         ),
       ],
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: content,
+      );
+    }
+    return content;
   }
 }
 

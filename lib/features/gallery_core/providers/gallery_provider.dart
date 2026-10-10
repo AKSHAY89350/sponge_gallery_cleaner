@@ -7,6 +7,7 @@ import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_medi
 import 'dart:math';
 
 class GalleryProvider extends ChangeNotifier {
+  static final RegExp _waRegex = RegExp(r'^wa\d+');
   List<MonthGroup> monthGroups = [];
   MonthGroup? screenshotsGroup;
   MonthGroup? whatsappGroup;
@@ -153,76 +154,75 @@ class GalleryProvider extends ChangeNotifier {
       blurryGroup = null;
 
       final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      final decisionMap = <String, String>{};
+      final blurrySet = <String>{};
+      for (final k in keys) {
+        if (k.startsWith('decision_')) {
+          final val = prefs.getString(k);
+          if (val != null) decisionMap[k.substring(9)] = val;
+        } else if (k.startsWith('blurry_')) {
+          if (prefs.getBool(k) == true) blurrySet.add(k.substring(7));
+        }
+      }
 
       if (albums.isNotEmpty) {
-        // 1. Collect asset IDs from specialized WhatsApp & Screenshot albums
-        final whatsappAssetIds = <String>{};
+        // 1. Collect asset IDs from specialized Screenshot album (single album, quick query)
         final screenshotAssetIds = <String>{};
-        final Set<String> processedAssetIds = {};
-        final List<AssetEntity> allAssets = [];
 
         for (final album in albums) {
-          final nameLower = album.name.toLowerCase();
-          if (nameLower.contains('whatsapp')) {
-            final count = await album.assetCountAsync;
-            final list = await album.getAssetListRange(start: 0, end: count);
-            for (final a in list) {
-              whatsappAssetIds.add(a.id);
-            }
-          } else if (nameLower.contains('screenshot')) {
+          if (album.isAll) continue;
+
+          final nameLower = album.name.toLowerCase().trim();
+          if (nameLower == 'screenshots' || nameLower == 'screenshot') {
             final count = await album.assetCountAsync;
             final list = await album.getAssetListRange(start: 0, end: count);
             for (final a in list) {
               screenshotAssetIds.add(a.id);
             }
+            break; // Dedicated Screenshots album found, no need to scan remaining albums
           }
         }
 
         // 2. Fetch all assets from allAlbum (Recents/All)
         final allAlbum = albums.first;
         final total = await allAlbum.assetCountAsync;
+        final List<AssetEntity> allAssets = [];
 
         const chunkSize = 2500;
         for (int i = 0; i < total; i += chunkSize) {
           final end = (i + chunkSize).clamp(0, total);
           final chunk = await allAlbum.getAssetListRange(start: i, end: end);
-          for (final a in chunk) {
-            if (processedAssetIds.add(a.id)) {
-              allAssets.add(a);
-            }
-          }
+          allAssets.addAll(chunk);
         }
 
-        // 3. Also ensure any assets in WhatsApp/Screenshot albums that weren't in allAlbum get included
-        for (final album in albums) {
-          final nameLower = album.name.toLowerCase();
-          if (nameLower.contains('whatsapp') || nameLower.contains('screenshot')) {
-            final count = await album.assetCountAsync;
-            final list = await album.getAssetListRange(start: 0, end: count);
-            for (final a in list) {
-              if (processedAssetIds.add(a.id)) {
-                allAssets.add(a);
-              }
-            }
-          }
-        }
-
-        // 4. Convert all assets to GalleryMediaItem
+        // 3. Convert all assets to GalleryMediaItem
         for (final asset in allAssets) {
           final titleLower = (asset.title ?? '').toLowerCase();
           final relLower = (asset.relativePath ?? '').toLowerCase();
           final filePath = "${asset.relativePath ?? ''}/${asset.title ?? ''}";
 
-          final isWhatsApp = whatsappAssetIds.contains(asset.id) ||
-              titleLower.contains('whatsapp') ||
+          final isTitleWhatsApp = titleLower.contains('whatsapp') ||
               titleLower.contains('-wa') ||
-              titleLower.startsWith('wa') ||
-              relLower.contains('whatsapp');
+              titleLower.startsWith('img-wa') ||
+              titleLower.startsWith('vid-wa') ||
+              _waRegex.hasMatch(titleLower);
+
+          final isWhatsApp =
+              relLower.contains('whatsapp') || isTitleWhatsApp;
+
+          final isTitleScreenshot = titleLower.startsWith('screenshot') ||
+              titleLower.startsWith('screen_') ||
+              titleLower.startsWith('screen-');
+          final isRelScreenshot = relLower.startsWith('pictures/screenshots') ||
+              relLower.startsWith('dcim/screenshots') ||
+              relLower.contains('/screenshots') ||
+              relLower == 'screenshots' ||
+              relLower == 'screenshots/';
 
           final isScreenshot = screenshotAssetIds.contains(asset.id) ||
-              titleLower.contains('screenshot') ||
-              titleLower.contains('screen_record') ||
-              relLower.contains('screenshot');
+              (isRelScreenshot && isTitleScreenshot) ||
+              (screenshotAssetIds.isEmpty && (isRelScreenshot || isTitleScreenshot));
 
           final dateTakenMs = asset.createDateTime.millisecondsSinceEpoch > 0
               ? asset.createDateTime.millisecondsSinceEpoch
@@ -243,24 +243,21 @@ class GalleryProvider extends ChangeNotifier {
             mimeType: asset.mimeType,
           );
 
-          // Restore saved blurry state
-          final savedBlurry = prefs.getBool('blurry_${item.id}');
-          if (savedBlurry != null) {
-            item.isBlurry = savedBlurry;
-            if (savedBlurry) {
-              if (blurryGroup == null) {
-                blurryGroup = MonthGroup(
-                    label: 'Blurry Photos',
-                    yearMonthKey: 'blurry_photos',
-                    items: [item]);
-              } else {
-                blurryGroup!.items.add(item);
-              }
+          // Restore saved blurry state (instant O(1))
+          if (blurrySet.contains(item.id)) {
+            item.isBlurry = true;
+            if (blurryGroup == null) {
+              blurryGroup = MonthGroup(
+                  label: 'Blurry Photos',
+                  yearMonthKey: 'blurry_photos',
+                  items: [item]);
+            } else {
+              blurryGroup!.items.add(item);
             }
           }
 
-          // Restore saved decision
-          final savedDecision = prefs.getString('decision_${item.id}');
+          // Restore saved decision (instant O(1))
+          final savedDecision = decisionMap[item.id];
           if (savedDecision != null) {
             item.decision = SwipeAction.values.firstWhere(
               (e) => e.name == savedDecision,
@@ -354,26 +351,81 @@ class GalleryProvider extends ChangeNotifier {
     }
   }
 
+  void _ensureItemFileSize(GalleryMediaItem item) {
+    if (item.fileSize <= 0) {
+      AssetEntity.fromId(item.id).then((entity) async {
+        if (entity != null) {
+          final f = await entity.file;
+          if (f != null) {
+            item.fileSize = f.lengthSync();
+            totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
+            notifyListeners();
+          }
+        }
+      });
+    }
+  }
+
   Future<void> _fetchSizesForAssets(List<AssetEntity> assets) async {
-    for (int i = 0; i < assets.length; i++) {
-      final asset = assets[i];
+    // Instant O(1) item map
+    final itemMap = {for (final it in allItems) it.id: it};
+
+    // Phase 1: High Priority (Videos & Staged Trash Items)
+    // Videos are primary candidates for Large Files (>10MB). Staged items impact Trash size counter.
+    final priorityAssets = assets.where((a) =>
+      a.type == AssetType.video || _stagingBin.any((s) => s.id == a.id)
+    ).toList();
+
+    for (final asset in priorityAssets) {
       try {
         final originFile = await asset.file;
         if (originFile != null) {
           final size = originFile.lengthSync();
-          final idx = allItems.indexWhere((it) => it.id == asset.id);
-          if (idx != -1) {
-            allItems[idx].fileSize = size;
-            _categorizeLargeFile(allItems[idx]);
+          final item = itemMap[asset.id];
+          if (item != null) {
+            item.fileSize = size;
+            _categorizeLargeFile(item);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Update trash bytes and notify UI ONCE after priority pass
+    totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
+    notifyListeners();
+
+    // Phase 2: Background Low-Priority Scan for remaining photos
+    // Non-video photos are rarely >10MB, so scan them quietly and yield UI thread
+    final remainingPhotos = assets.where((a) => a.type != AssetType.video).toList();
+    bool foundNewLarge = false;
+
+    for (int i = 0; i < remainingPhotos.length; i++) {
+      final asset = remainingPhotos[i];
+      try {
+        final originFile = await asset.file;
+        if (originFile != null) {
+          final size = originFile.lengthSync();
+          final item = itemMap[asset.id];
+          if (item != null) {
+            item.fileSize = size;
+            if (size > 10 * 1024 * 1024) {
+              _categorizeLargeFile(item);
+              foundNewLarge = true;
+            }
           }
         }
       } catch (_) {}
 
-      if (i > 0 && i % 100 == 0) {
-        totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
-        notifyListeners();
+      // Yield frame every 40 items to preserve 60/120 FPS UI smoothness
+      if (i > 0 && i % 40 == 0) {
+        if (foundNewLarge) {
+          notifyListeners();
+          foundNewLarge = false;
+        }
+        await Future.delayed(const Duration(milliseconds: 16));
       }
     }
+
     totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
     notifyListeners();
   }
@@ -384,6 +436,7 @@ class GalleryProvider extends ChangeNotifier {
       if (!_stagingBin.any((i) => i.id == item.id)) {
         _stagingBin.add(item);
       }
+      _ensureItemFileSize(item);
       _saveDecision(item.id, SwipeAction.trash);
     }
     totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
@@ -405,6 +458,7 @@ class GalleryProvider extends ChangeNotifier {
     if (!_stagingBin.any((i) => i.id == item.id)) {
       _stagingBin.add(item);
     }
+    _ensureItemFileSize(item);
     totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
     _saveDecision(item.id, SwipeAction.trash);
     notifyListeners();
@@ -625,7 +679,7 @@ class GalleryProvider extends ChangeNotifier {
           currentGroup.isNotEmpty ? currentGroup.first.dateTaken : current.dateTaken;
       final diffFromStart = (clusterStart - next.dateTaken).abs();
 
-      if (diffFromPrevious <= 3000 && diffFromStart <= 15000) {
+      if (diffFromPrevious <= 3000 && diffFromStart <= 15000 && currentGroup.length < 15) {
         if (currentGroup.isEmpty) currentGroup.add(current);
         if (!currentGroup.any((item) => item.id == next.id)) {
           currentGroup.add(next);

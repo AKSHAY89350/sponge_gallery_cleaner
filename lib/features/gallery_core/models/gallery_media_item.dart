@@ -43,6 +43,15 @@ class GalleryMediaItem {
     final lower = path.toLowerCase();
     return lower.contains('whatsapp') || lower.contains('-wa');
   }
+
+  bool get isScreenshot {
+    final lower = path.toLowerCase();
+    return lower.contains('/screenshots') ||
+        lower.contains('screenshots/') ||
+        lower.contains('/screenshot_') ||
+        lower.contains('screenshot_') ||
+        lower.contains('screen_record');
+  }
 }
 
 class MonthGroup {

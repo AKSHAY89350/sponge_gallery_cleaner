@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +16,6 @@ class BlurryPhotosScreen extends StatefulWidget {
 
 class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
   final Set<String> _selectedIds = {};
-  bool _isDeleting = false;
 
   @override
   void initState() {
