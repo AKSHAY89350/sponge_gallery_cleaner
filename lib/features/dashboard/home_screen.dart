@@ -467,9 +467,10 @@ class _HomeTab extends StatelessWidget {
           final total = group.items.length;
           if (total == 0) return const SizedBox.shrink();
           final remaining = group.items.where((i) => i.decision == null).length;
-          if (remaining == 0) return const SizedBox.shrink();
+          final isCompleted = remaining == 0;
 
           final percent = ((total - remaining) / total * 100).toInt();
+          final primaryColor = isCompleted ? const Color(0xFF10B981) : const Color(0xFF7C3AED);
 
           return GestureDetector(
             onTap: () => _openSwipeScreen(context, group),
@@ -479,6 +480,9 @@ class _HomeTab extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF16181F),
                 borderRadius: BorderRadius.circular(16),
+                border: isCompleted
+                    ? Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3), width: 1)
+                    : null,
               ),
               child: Column(
                 children: [
@@ -487,10 +491,14 @@ class _HomeTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withOpacity(0.15),
+                          color: primaryColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.calendar_month_rounded, color: Color(0xFF7C3AED), size: 24),
+                        child: Icon(
+                          isCompleted ? Icons.check_circle_rounded : Icons.calendar_month_rounded,
+                          color: primaryColor,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -499,23 +507,34 @@ class _HomeTab extends StatelessWidget {
                           children: [
                             Text(
                               group.label,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: isCompleted ? Colors.white54 : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
+                                decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                                decorationColor: const Color(0xFF10B981),
+                                decorationThickness: 2,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '$remaining items',
-                              style: const TextStyle(color: Colors.white54, fontSize: 13),
+                              isCompleted ? 'Completed ✓' : '$remaining items',
+                              style: TextStyle(
+                                color: isCompleted ? const Color(0xFF10B981) : Colors.white54,
+                                fontSize: 13,
+                                fontWeight: isCompleted ? FontWeight.w600 : FontWeight.normal,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Text(
-                        '$percent%',
-                        style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 14),
+                        isCompleted ? '100%' : '$percent%',
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
@@ -525,7 +544,7 @@ class _HomeTab extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: percent / 100,
                       backgroundColor: Colors.white10,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
+                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       minHeight: 6,
                     ),
                   ),
