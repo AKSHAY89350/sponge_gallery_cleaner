@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:disk_space_2/disk_space_2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sponge_gallery_cleaner/core/services/ai_scan_coordinator.dart';
 import 'package:sponge_gallery_cleaner/core/utils/blur_detector.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
@@ -268,6 +269,7 @@ class GalleryProvider extends ChangeNotifier {
             if (item.decision == SwipeAction.trash) {
               _stagingBin.add(item);
             }
+            AiScanCoordinator.instance.markReviewed(item.id);
           }
 
           allItems.add(item);
@@ -632,6 +634,7 @@ class GalleryProvider extends ChangeNotifier {
   Future<void> _saveDecision(String id, SwipeAction action) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('decision_$id', action.name);
+    AiScanCoordinator.instance.markReviewed(id);
   }
 
   Future<void> _clearDecision(String id) async {

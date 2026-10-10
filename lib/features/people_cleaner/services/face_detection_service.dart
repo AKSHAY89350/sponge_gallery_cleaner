@@ -6,18 +6,12 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sponge_gallery_cleaner/core/services/ai_scan_coordinator.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/models/person_cluster.dart';
+import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
 
 class FaceDetectionService {
-  static final FaceDetector _detector = FaceDetector(
-    options: FaceDetectorOptions(
-      enableLandmarks: true,
-      enableClassification: true,
-      performanceMode: FaceDetectorMode.accurate,
-    ),
-  );
-
   static final List<PersonCluster> clusters = [];
   static final List<GalleryMediaItem> groupPhotos = [];
   static bool isScanning = false;
@@ -128,9 +122,10 @@ class FaceDetectionService {
         await prefs.remove('face_scanned_$id');
       }
     } catch (_) {}
+    AiScanCoordinator.instance.onItemsDeleted(deletedIds);
   }
 
-  /// Analyze unscanned gallery photos continuously with thermal cooldown breaks
+  /// Analyze unscanned gallery photos using Bidirectional Two-Pointer concurrency (Limit = 2)
   static Future<void> scanGalleryForFaces({
     required List<GalleryMediaItem> allItems,
     required VoidCallback onProgress,
@@ -140,11 +135,37 @@ class FaceDetectionService {
     isCoolingDown = false;
     coolingDownSecondsRemaining = 0;
 
+    // Enforce Mutual Exclusion: Pause conflicting AI engine
+    AiScanCoordinator.instance.requestExclusiveEngine(
+      AiScanEngine.face,
+      onConflictPause: () => SceneClassifierService.stopScanning(),
+    );
+    await AiScanCoordinator.instance.initialize();
+
     final tempDir = Directory.systemTemp;
-    final tempScanFile = File('${tempDir.path}/face_scan_temp.jpg');
+    final tempHeadFile = File('${tempDir.path}/face_scan_worker_head.jpg');
+    final tempTailFile = File('${tempDir.path}/face_scan_worker_tail.jpg');
+
+    FaceDetector? detectorHead;
+    FaceDetector? detectorTail;
 
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      detectorHead = FaceDetector(
+        options: FaceDetectorOptions(
+          enableLandmarks: true,
+          enableClassification: true,
+          performanceMode: FaceDetectorMode.accurate,
+        ),
+      );
+      detectorTail = FaceDetector(
+        options: FaceDetectorOptions(
+          enableLandmarks: true,
+          enableClassification: true,
+          performanceMode: FaceDetectorMode.accurate,
+        ),
+      );
 
       // Filter only photos (skip videos and screenshots)
       final photoCandidates = allItems
@@ -159,121 +180,161 @@ class FaceDetectionService {
       scannedCount = 0;
       onProgress();
 
-      final processList = unscanned; // Scan all unscanned photos continuously
+      if (unscanned.isEmpty) {
+        return;
+      }
 
+      final controller = BidirectionalScanController<GalleryMediaItem>(unscanned);
       int sessionPhotoCount = 0;
+      int changesCount = 0;
 
-      for (int i = 0; i < processList.length; i++) {
-        if (!isScanning) break; // Allow pausing
-
-        // 500 photos cooldown: pause for 1 minute to let device cool, then resume
-        if (sessionPhotoCount > 0 && sessionPhotoCount % 500 == 0) {
-          isCoolingDown = true;
-          for (int sec = 60; sec > 0; sec--) {
-            if (!isScanning) break;
-            coolingDownSecondsRemaining = sec;
-            onProgress();
-            await Future.delayed(const Duration(seconds: 1));
+      Future<void> runWorker({
+        required bool isHead,
+        required FaceDetector detector,
+        required File tempFile,
+      }) async {
+        while (!controller.isCompleted && isScanning) {
+          // If the other worker triggered a cooling break, wait cooperatively
+          while (isCoolingDown && isScanning) {
+            await Future.delayed(const Duration(milliseconds: 300));
           }
-          isCoolingDown = false;
-          coolingDownSecondsRemaining = 0;
-          onProgress();
-          if (!isScanning) break;
-        }
+          if (!isScanning || controller.isCompleted) break;
 
-        final item = processList[i];
-        try {
-          final asset = await AssetEntity.fromId(item.id);
-          if (asset != null) {
-            // Get fast 512x512 thumbnail
-            final thumbBytes = await asset.thumbnailDataWithSize(
-              const ThumbnailSize.square(512),
-              quality: 85,
-            );
+          final item = isHead ? controller.claimNextHead() : controller.claimNextTail();
+          if (item == null) break;
 
-            if (thumbBytes != null) {
-              await tempScanFile.writeAsBytes(thumbBytes, flush: true);
-              final inputImage = InputImage.fromFilePath(tempScanFile.path);
+          // 1. SMART SKIPPING:
+          // Skip if flagged as Document/Receipt or already reviewed by the user
+          if (AiScanCoordinator.instance.isDocument(item.id) ||
+              AiScanCoordinator.instance.isReviewed(item.id)) {
+            await prefs.setBool('face_scanned_${item.id}', true);
+            scannedCount++;
+            continue;
+          }
 
-              final faces = await _detector.processImage(inputImage);
-              final validFaces = faces
-                  .where((f) => f.boundingBox.width >= 40 && f.boundingBox.height >= 40)
-                  .toList()
-                ..sort((a, b) =>
-                    (b.boundingBox.width * b.boundingBox.height)
-                        .compareTo(a.boundingBox.width * a.boundingBox.height));
+          // 2. Cooldown check (every 500 photos across both workers)
+          sessionPhotoCount++;
+          if (sessionPhotoCount > 0 && sessionPhotoCount % 500 == 0 && !isCoolingDown) {
+            isCoolingDown = true;
+            for (int sec = 60; sec > 0; sec--) {
+              if (!isScanning) break;
+              coolingDownSecondsRemaining = sec;
+              onProgress();
+              await Future.delayed(const Duration(seconds: 1));
+            }
+            isCoolingDown = false;
+            coolingDownSecondsRemaining = 0;
+            onProgress();
+            if (!isScanning) break;
+          }
 
-              bool hasChange = false;
+          try {
+            final asset = await AssetEntity.fromId(item.id);
+            if (asset != null) {
+              final thumbBytes = await asset.thumbnailDataWithSize(
+                const ThumbnailSize.square(512),
+                quality: 85,
+              );
 
-              if (validFaces.length >= 2) {
-                if (!groupPhotos.any((it) => it.id == item.id)) {
-                  groupPhotos.add(item);
-                  hasChange = true;
-                }
-              }
+              if (thumbBytes != null) {
+                await tempFile.writeAsBytes(thumbBytes, flush: true);
+                final inputImage = InputImage.fromFilePath(tempFile.path);
 
-              if (validFaces.isNotEmpty) {
-                img.Image? decoded;
-                try {
-                  decoded = img.decodeImage(thumbBytes);
-                } catch (_) {}
+                final faces = await detector.processImage(inputImage);
+                final validFaces = faces
+                    .where((f) => f.boundingBox.width >= 40 && f.boundingBox.height >= 40)
+                    .toList()
+                  ..sort((a, b) =>
+                      (b.boundingBox.width * b.boundingBox.height)
+                          .compareTo(a.boundingBox.width * a.boundingBox.height));
 
-                // Process up to 5 clear faces per photo
-                for (final face in validFaces.take(5)) {
-                  // Skip extreme side-profile angles (> 22° yaw or > 25° tilt) to preserve geometric accuracy
-                  if (face.headEulerAngleY != null && face.headEulerAngleY!.abs() > 22) continue;
-                  if (face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 25) continue;
+                bool hasChange = false;
 
-                  final features = _extractFeatureVector(face, 512, 512);
-                  if (features.isEmpty) continue;
-
-                  Uint8List? avatarBytes;
-                  if (decoded != null) {
-                    try {
-                      final box = face.boundingBox;
-                      final padX = (box.width * 0.2).toInt();
-                      final padY = (box.height * 0.2).toInt();
-
-                      final x = (box.left.toInt() - padX).clamp(0, decoded.width - 1);
-                      final y = (box.top.toInt() - padY).clamp(0, decoded.height - 1);
-                      final w = (box.width.toInt() + padX * 2).clamp(1, decoded.width - x);
-                      final h = (box.height.toInt() + padY * 2).clamp(1, decoded.height - y);
-
-                      final cropped = img.copyCrop(decoded, x: x, y: y, width: w, height: h);
-                      final square = img.copyResize(cropped, width: 140, height: 140);
-                      avatarBytes = Uint8List.fromList(img.encodeJpg(square, quality: 80));
-                    } catch (_) {}
+                if (validFaces.length >= 2) {
+                  if (!groupPhotos.any((it) => it.id == item.id)) {
+                    groupPhotos.add(item);
+                    hasChange = true;
                   }
-
-                  _matchAndCluster(item, features, avatarBytes);
-                  hasChange = true;
                 }
-              }
 
-              if (hasChange) {
-                await saveClusters();
+                if (validFaces.isNotEmpty) {
+                  img.Image? decoded;
+                  try {
+                    decoded = img.decodeImage(thumbBytes);
+                  } catch (_) {}
+
+                  // Process up to 5 clear faces per photo
+                  for (final face in validFaces.take(5)) {
+                    if (face.headEulerAngleY != null && face.headEulerAngleY!.abs() > 22) continue;
+                    if (face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 25) continue;
+
+                    final features = _extractFeatureVector(face, 512, 512);
+                    if (features.isEmpty) continue;
+
+                    Uint8List? avatarBytes;
+                    if (decoded != null) {
+                      try {
+                        final box = face.boundingBox;
+                        final padX = (box.width * 0.2).toInt();
+                        final padY = (box.height * 0.2).toInt();
+
+                        final x = (box.left.toInt() - padX).clamp(0, decoded.width - 1);
+                        final y = (box.top.toInt() - padY).clamp(0, decoded.height - 1);
+                        final w = (box.width.toInt() + padX * 2).clamp(1, decoded.width - x);
+                        final h = (box.height.toInt() + padY * 2).clamp(1, decoded.height - y);
+
+                        final cropped = img.copyCrop(decoded, x: x, y: y, width: w, height: h);
+                        final square = img.copyResize(cropped, width: 140, height: 140);
+                        avatarBytes = Uint8List.fromList(img.encodeJpg(square, quality: 80));
+                      } catch (_) {}
+                    }
+
+                    _matchAndCluster(item, features, avatarBytes);
+                    hasChange = true;
+                  }
+                }
+
+                if (hasChange) {
+                  changesCount++;
+                  if (changesCount % 5 == 0) {
+                    await saveClusters();
+                  }
+                }
               }
             }
-          }
-          await prefs.setBool('face_scanned_${item.id}', true);
-        } catch (_) {}
+            await prefs.setBool('face_scanned_${item.id}', true);
+          } catch (_) {}
 
-        scannedCount++;
-        sessionPhotoCount++;
-        if (i % 4 == 0 || i == processList.length - 1) {
-          onProgress();
-          await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
+          scannedCount++;
+          if (scannedCount % 4 == 0) {
+            onProgress();
+            await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
+          }
         }
       }
+
+      // Concurrency Limit = 2: Bidirectional Dual Workers (Head + Tail)
+      await Future.wait([
+        runWorker(isHead: true, detector: detectorHead, tempFile: tempHeadFile),
+        runWorker(isHead: false, detector: detectorTail, tempFile: tempTailFile),
+      ]);
     } finally {
-      // Secure cleanup of temporary scan file
       try {
-        if (await tempScanFile.exists()) {
-          await tempScanFile.delete();
-        }
+        if (await tempHeadFile.exists()) await tempHeadFile.delete();
+      } catch (_) {}
+      try {
+        if (await tempTailFile.exists()) await tempTailFile.delete();
+      } catch (_) {}
+
+      try {
+        await detectorHead?.close();
+      } catch (_) {}
+      try {
+        await detectorTail?.close();
       } catch (_) {}
 
       await saveClusters();
+      AiScanCoordinator.instance.releaseEngine(AiScanEngine.face);
       isScanning = false;
       isCoolingDown = false;
       coolingDownSecondsRemaining = 0;
@@ -285,6 +346,7 @@ class FaceDetectionService {
     isScanning = false;
     isCoolingDown = false;
     coolingDownSecondsRemaining = 0;
+    AiScanCoordinator.instance.releaseEngine(AiScanEngine.face);
   }
 
   /// Feature extraction using Inter-Pupillary Distance (IPD) normalization
