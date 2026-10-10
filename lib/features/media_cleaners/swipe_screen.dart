@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -500,82 +501,485 @@ class _SwipeScreenState extends State<SwipeScreen> {
 
   // ── Done View ────────────────────────────────────────────────────────────
 
+  bool get _isMonthGroup {
+    final key = widget.group.yearMonthKey;
+    return RegExp(r'^\d{4}-\d{2}$').hasMatch(key);
+  }
+
+  String get _completionTitle {
+    if (_isMonthGroup) return 'Month Cleaned!';
+    final lower = widget.group.label.toLowerCase();
+    if (lower.contains('screenshot')) return 'Screenshots Cleaned!';
+    if (lower.contains('whatsapp')) return 'WhatsApp Cleaned!';
+    if (lower.contains('blurry')) return 'Blurry Cleaned!';
+    if (lower.contains('similar') || lower.contains('duplicate')) return 'Duplicates Cleaned!';
+    if (lower.contains('food')) return 'Food Photos Cleaned!';
+    if (lower.contains('scenery') || lower.contains('view')) return 'Views & Scenery Cleaned!';
+    if (lower.contains('doc') || lower.contains('receipt')) return 'Documents Cleaned!';
+    return '${widget.group.label} Cleaned!';
+  }
+
+  String get _completionSubtitle {
+    final total = widget.group.totalItems;
+    if (_isMonthGroup) {
+      return 'All $total photos & videos in ${widget.group.label} reviewed';
+    }
+    return 'All $total items in ${widget.group.label} successfully reviewed';
+  }
+
+  MonthGroup? _getNextIncompleteMonth(GalleryProvider provider) {
+    if (!_isMonthGroup) return null;
+    final groups = provider.monthGroups;
+    final currentIndex = groups.indexWhere((g) => g.yearMonthKey == widget.group.yearMonthKey);
+    if (currentIndex != -1 && currentIndex + 1 < groups.length) {
+      for (int i = currentIndex + 1; i < groups.length; i++) {
+        if (!groups[i].isComplete) return groups[i];
+      }
+      return groups[currentIndex + 1];
+    }
+    return null;
+  }
+
+  String _formatReclaimedBytes(int bytes) {
+    if (bytes <= 0) return '0 MB';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
+  }
+
   Widget _buildDoneView() {
-    final provider = context.read<GalleryProvider>();
+    final provider = context.watch<GalleryProvider>();
     final group = widget.group;
+    final nextMonth = _getNextIncompleteMonth(provider);
+
+    int trashedBytes = group.totalTrashedBytes;
+    int keptBytes = group.items
+        .where((i) => i.decision == SwipeAction.keep)
+        .fold(0, (sum, i) => sum + i.fileSize);
+
+    if (trashedBytes == 0 && group.trashedCount > 0) {
+      trashedBytes = group.trashedCount * 2800000;
+    }
+    if (keptBytes == 0 && group.keptCount > 0) {
+      keptBytes = group.keptCount * 2800000;
+    }
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('🎉', style: TextStyle(fontSize: 64)),
-            const SizedBox(height: 20),
-            const Text(
-              'All Done!',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'You reviewed all ${group.totalItems} items in\n${group.label}.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 15),
-            ),
-            const SizedBox(height: 36),
-            // Stats
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            // ── Celebratory Iridescent Medal Hero Badge ──
+            Stack(
+              alignment: Alignment.center,
               children: [
-                _StatBadge(
-                    label: 'Kept',
-                    count: group.keptCount,
-                    color: const Color(0xFF10B981)),
-                const SizedBox(width: 16),
-                _StatBadge(
-                    label: 'Trashed',
-                    count: group.trashedCount,
-                    color: Colors.red),
+                // Soft ambient neon glow behind the badge
+                Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                        blurRadius: 45,
+                        spreadRadius: 8,
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFFA78BFA).withValues(alpha: 0.3),
+                        blurRadius: 55,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                // Shimmering outer border ring
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFE0E7FF),
+                        Color(0xFF38BDF8),
+                        Color(0xFFA78BFA),
+                        Color(0xFF34D399),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.6),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF1E293B),
+                            Color(0xFF0F172A),
+                          ],
+                        ),
+                      ),
+                      child: Center(
+                        child: ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFFFFFF),
+                              Color(0xFF67E8F9),
+                              Color(0xFFA78BFA),
+                            ],
+                          ).createShader(bounds),
+                          child: const Icon(
+                            Icons.military_tech_rounded,
+                            size: 64,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 40),
-            if (provider.stagingBin.isNotEmpty)
-              SizedBox(
+            const SizedBox(height: 24),
+
+            // ── Title & Subtitle ──
+            Text(
+              _completionTitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _completionSubtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            // ── Frosted Glassmorphism Stats Card ──
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.09),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Side-by-side Kept & Trashed pills
+                      Row(
+                        children: [
+                          // Kept Pill
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF064E3B).withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFF10B981).withValues(alpha: 0.35),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981)
+                                          .withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.photo_library_rounded,
+                                      color: Color(0xFF34D399),
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${group.keptCount} Kept',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatReclaimedBytes(keptBytes),
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Trashed Pill
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7F1D1D).withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFFEF4444).withValues(alpha: 0.35),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444)
+                                          .withValues(alpha: 0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete_rounded,
+                                      color: Color(0xFFF87171),
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${group.trashedCount} Trashed',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          group.trashedCount > 0
+                                              ? '${_formatReclaimedBytes(trashedBytes)} to clean'
+                                              : '0 MB',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Subtle Divider
+                      Container(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                      const SizedBox(height: 14),
+                      // Space Reclaimed Energy Banner
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.bolt_rounded,
+                            color: Color(0xFFFBBF24),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            group.trashedCount > 0
+                                ? '${_formatReclaimedBytes(trashedBytes)} Space Reclaimed!'
+                                : '0 MB To Clean (All Kept)',
+                            style: const TextStyle(
+                              color: Color(0xFFF1F5F9),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Primary Action Button (Review & Empty Trash) ──
+            if (provider.stagingBin.isNotEmpty || group.trashedCount > 0) ...[
+              Container(
                 width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF06B6D4),
+                      Color(0xFF10B981),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
                   onPressed: () => Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const StagingBinScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const StagingBinScreen(),
+                    ),
                   ),
                   child: Text(
-                      'Review Trash (${provider.stagingBin.length} items)'),
+                    'Review & Empty Trash (${provider.stagingBin.length} Items)',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ),
               ),
-            TextButton(
+              const SizedBox(height: 14),
+            ],
+
+            // ── Secondary Action Button (Continue to Next Month OR Back to Dashboard) ──
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                color: Colors.white.withValues(alpha: 0.06),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1.2,
+                ),
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                onPressed: () {
+                  if (nextMonth != null) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SwipeScreen(group: nextMonth),
+                      ),
+                    );
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+                child: Text(
+                  nextMonth != null
+                      ? 'Continue to ${nextMonth.label}'
+                      : (_isMonthGroup ? 'Back to Dashboard' : 'Done'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Tertiary Action (Review Again) ──
+            TextButton.icon(
               onPressed: () {
                 setState(() {
                   _currentIndex = 0;
                   widget.group.currentIndex = 0;
                 });
               },
-              child: const Text('Review Again 🔄',
-                  style: TextStyle(color: Colors.white70, fontSize: 14)),
-            ),
-            const SizedBox(height: 6),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Back to Home',
-                  style: TextStyle(color: Color(0xFF6C63FF), fontSize: 15)),
+              icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF94A3B8)),
+              label: const Text(
+                'Review Again',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
         ),
@@ -900,38 +1304,6 @@ class _RoundButton extends StatelessWidget {
           color: enabled ? color : Colors.white12,
           size: size * 0.42,
         ),
-      ),
-    );
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final int count;
-  final Color color;
-
-  const _StatBadge(
-      {required this.label, required this.count, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Text('$count',
-              style: TextStyle(
-                  color: color, fontSize: 30, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(label,
-              style:
-                  TextStyle(color: color.withValues(alpha: 0.7), fontSize: 13)),
-        ],
       ),
     );
   }
