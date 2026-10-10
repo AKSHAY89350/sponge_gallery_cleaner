@@ -301,7 +301,9 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                       onUpdated: () => setState(() {}),
                     ),
                   ),
-                );
+                ).then((_) {
+                  if (mounted) setState(() {});
+                });
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -488,7 +490,9 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                                     onUpdated: () => setState(() {}),
                                   ),
                                 ),
-                              );
+                              ).then((_) {
+                                if (mounted) setState(() {});
+                              });
                             },
                           );
                         },
@@ -515,37 +519,63 @@ class _PersonCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF16181F),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(
+            color: person.pendingPhotoCount == 0
+                ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.06),
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: (person.pendingPhotoCount > 0
-                          ? const Color(0xFF7C3AED)
-                          : const Color(0xFF10B981))
-                      .withValues(alpha: 0.6),
-                  width: 2.5,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: (person.pendingPhotoCount > 0
+                              ? const Color(0xFF7C3AED)
+                              : const Color(0xFF10B981))
+                          .withValues(alpha: 0.6),
+                      width: 2.5,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: person.avatarBytes != null
+                        ? Image.memory(
+                            person.avatarBytes!,
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                            child: const Icon(Icons.face_rounded, color: Color(0xFF7C3AED), size: 40),
+                          ),
+                  ),
                 ),
-              ),
-              child: ClipOval(
-                child: person.avatarBytes != null
-                    ? Image.memory(
-                        person.avatarBytes!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
-                        child: const Icon(Icons.face_rounded, color: Color(0xFF7C3AED), size: 40),
+                if (person.pendingPhotoCount == 0)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF16181F),
+                        shape: BoxShape.circle,
                       ),
-              ),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF10B981),
+                        size: 22,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -568,17 +598,26 @@ class _PersonCard extends StatelessWidget {
                     .withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                person.pendingPhotoCount > 0
-                    ? '${person.pendingPhotoCount} to clean'
-                    : 'Cleaned',
-                style: TextStyle(
-                  color: person.pendingPhotoCount > 0
-                      ? const Color(0xFF7C3AED)
-                      : const Color(0xFF10B981),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (person.pendingPhotoCount == 0) ...[
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 12),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    person.pendingPhotoCount > 0
+                        ? '${person.pendingPhotoCount} to clean'
+                        : 'Cleaned',
+                    style: TextStyle(
+                      color: person.pendingPhotoCount > 0
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFF10B981),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

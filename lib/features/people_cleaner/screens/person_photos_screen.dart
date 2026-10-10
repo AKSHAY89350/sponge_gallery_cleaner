@@ -363,7 +363,14 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
                               items: widget.person.items,
                               initialIndex: index,
                             ),
-                          );
+                          ).then((_) {
+                            if (!mounted) return;
+                            setState(() {});
+                            widget.onUpdated();
+                            if (widget.person.pendingPhotoCount == 0) {
+                              Navigator.of(this.context).pop();
+                            }
+                          });
                         },
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
