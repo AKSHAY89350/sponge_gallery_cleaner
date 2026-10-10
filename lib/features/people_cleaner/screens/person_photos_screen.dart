@@ -103,6 +103,143 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
     });
   }
 
+  void _showMergeDialog() {
+    final otherPeople = FaceDetectionService.clusters
+        .where((c) => c.id != widget.person.id && c.id != 'group_photos')
+        .toList();
+
+    if (otherPeople.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No other people found to merge with.'),
+          backgroundColor: Color(0xFF16181F),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16181F),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Merge "${widget.person.name}" with...',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: Text(
+                    'Select person to combine photos into:',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: otherPeople.length,
+                    separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                    itemBuilder: (c, idx) {
+                      final target = otherPeople[idx];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                          backgroundImage: target.avatarBytes != null
+                              ? MemoryImage(target.avatarBytes!)
+                              : null,
+                          child: target.avatarBytes == null
+                              ? const Icon(Icons.face_rounded, color: Color(0xFF7C3AED), size: 20)
+                              : null,
+                        ),
+                        title: Text(
+                          target.name,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${target.photoCount} photos',
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.call_merge_rounded, color: Color(0xFF7C3AED)),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (alertCtx) => AlertDialog(
+                              backgroundColor: const Color(0xFF16181F),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: const Text('Confirm Merge', style: TextStyle(color: Colors.white)),
+                              content: Text(
+                                'Merge all photos from "${widget.person.name}" into "${target.name}"?',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(alertCtx, false),
+                                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF7C3AED),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: () => Navigator.pop(alertCtx, true),
+                                  child: const Text('Merge'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmed == true && mounted) {
+                            await FaceDetectionService.mergeClusters(target, widget.person);
+                            widget.onUpdated();
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Merged photos into "${target.name}"'),
+                                  backgroundColor: const Color(0xFF10B981),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pendingCount = widget.person.pendingPhotoCount;
@@ -121,6 +258,12 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
+          if (widget.person.id != 'group_photos')
+            IconButton(
+              icon: const Icon(Icons.merge_type_rounded, color: Colors.white70),
+              tooltip: 'Merge with another person',
+              onPressed: _showMergeDialog,
+            ),
           IconButton(
             icon: const Icon(Icons.edit_rounded, color: Colors.white70),
             tooltip: 'Rename Person',

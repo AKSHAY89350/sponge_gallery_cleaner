@@ -29,10 +29,10 @@ class PersonCluster {
     if (avatarBytes == null && newAvatar != null) {
       avatarBytes = newAvatar;
     }
-    // Update centroid very conservatively to prevent snowball cluster drift
+    // Update centroid conservatively to prevent snowball cluster drift
     if (featureVector.length == newFeatures.length) {
       for (int i = 0; i < featureVector.length; i++) {
-        featureVector[i] = (featureVector[i] * 0.93) + (newFeatures[i] * 0.07);
+        featureVector[i] = (featureVector[i] * 0.90) + (newFeatures[i] * 0.10);
       }
     }
   }

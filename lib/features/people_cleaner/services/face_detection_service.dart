@@ -100,6 +100,17 @@ class FaceDetectionService {
     } catch (_) {}
   }
 
+  /// Merge source cluster into target cluster
+  static Future<void> mergeClusters(PersonCluster target, PersonCluster source) async {
+    for (final item in source.items) {
+      if (!target.items.any((i) => i.id == item.id)) {
+        target.items.add(item);
+      }
+    }
+    clusters.removeWhere((c) => c.id == source.id);
+    await saveClusters();
+  }
+
   /// Remove permanently deleted media from clusters and cache
   static Future<void> onItemsDeleted(List<String> deletedIds) async {
     final delSet = deletedIds.toSet();
@@ -276,12 +287,8 @@ class FaceDetectionService {
     coolingDownSecondsRemaining = 0;
   }
 
-  /// Feature extraction using strict invariant facial proportions (smile excluded)
+  /// Feature extraction using Inter-Pupillary Distance (IPD) normalization
   static List<double> _extractFeatureVector(Face face, int imgW, int imgH) {
-    final box = face.boundingBox;
-    final faceW = box.width.toDouble().clamp(1.0, imgW.toDouble());
-    final faceH = box.height.toDouble().clamp(1.0, imgH.toDouble());
-
     final leftEye = face.landmarks[FaceLandmarkType.leftEye]?.position;
     final rightEye = face.landmarks[FaceLandmarkType.rightEye]?.position;
     final nose = face.landmarks[FaceLandmarkType.noseBase]?.position;
@@ -297,38 +304,33 @@ class FaceDetectionService {
     final eyeDist = math.sqrt(math.pow(rightEye.x - leftEye.x, 2) +
         math.pow(rightEye.y - leftEye.y, 2));
 
+    if (eyeDist < 12.0) return []; // Face too small / low-res for reliable biometrics
+
     final midEyeY = (leftEye.y + rightEye.y) / 2.0;
     final eyeToNose = (nose.y - midEyeY).abs();
 
-    double noseToMouth = (faceH * 0.25);
+    double noseToMouth = eyeDist * 0.45;
     if (bottomMouth != null) {
       noseToMouth = (bottomMouth.y - nose.y).abs().toDouble();
     }
 
-    double mouthWidth = (faceW * 0.35);
+    double mouthWidth = eyeDist * 0.75;
     if (leftMouth != null && rightMouth != null) {
       mouthWidth = math.sqrt(math.pow(rightMouth.x - leftMouth.x, 2) +
           math.pow(rightMouth.y - leftMouth.y, 2));
     }
 
-    final aspectRatio = faceW / faceH;
-    final eyeDistNorm = eyeDist / faceW;
-    final eyeToNoseNorm = eyeToNose / faceH;
-    final noseToMouthNorm = noseToMouth / faceH;
-    final mouthWidthNorm = mouthWidth / faceW;
-
-    // Cross-ratios (projective invariant geometry)
-    final eyeToNoseRatio = (eyeDist / eyeToNose.clamp(1.0, faceH)).clamp(0.5, 3.5);
-    final verticalCrossRatio = (eyeToNose / noseToMouth.clamp(1.0, faceH)).clamp(0.4, 3.5);
+    // IPD Normalization (Inter-Pupillary Distance) - independent of bounding box detector jitter
+    final eyeToNoseRatio = (eyeToNose / eyeDist).clamp(0.2, 2.5);
+    final noseToMouthRatio = (noseToMouth / eyeDist).clamp(0.2, 2.5);
+    final mouthWidthRatio = (mouthWidth / eyeDist).clamp(0.3, 2.5);
+    final eyeToMouthRatio = ((eyeToNose + noseToMouth) / eyeDist).clamp(0.4, 3.5);
 
     return [
-      aspectRatio.clamp(0.5, 2.0),
-      eyeDistNorm.clamp(0.1, 1.0),
-      eyeToNoseNorm.clamp(0.1, 1.0),
-      noseToMouthNorm.clamp(0.1, 1.0),
-      mouthWidthNorm.clamp(0.1, 1.0),
       eyeToNoseRatio,
-      verticalCrossRatio,
+      noseToMouthRatio,
+      mouthWidthRatio,
+      eyeToMouthRatio,
     ];
   }
 
@@ -349,9 +351,9 @@ class FaceDetectionService {
       }
     }
 
-    // Strict similarity threshold: 0.925 (average landmark variance <= 7.5%)
-    // Distinct people differ by 15-25% (similarity <= 0.85)
-    if (bestMatch != null && highestSimilarity >= 0.925) {
+    // Balanced similarity threshold: 0.875 (allows up to 12.5% natural expression variance)
+    // Matches the same person smiling, laughing, or wearing glasses; rejects different people (>20% difference)
+    if (bestMatch != null && highestSimilarity >= 0.875) {
       bestMatch.addPhoto(item, features, newAvatar: avatarBytes);
     } else {
       final newCluster = PersonCluster(
