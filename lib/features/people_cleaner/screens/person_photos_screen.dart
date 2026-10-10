@@ -93,7 +93,12 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
       context,
       MaterialPageRoute(builder: (_) => SwipeScreen(group: swipeGroup)),
     ).then((_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        if (widget.person.pendingPhotoCount == 0) {
+          Navigator.pop(context);
+        }
+      }
       widget.onUpdated();
     });
   }

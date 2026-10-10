@@ -14,6 +14,7 @@ class PeopleOverviewScreen extends StatefulWidget {
 
 class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
   bool _isInitializingFaces = false;
+  bool _showCompleted = false;
 
   @override
   void initState() {
@@ -119,8 +120,13 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
       });
     }
 
-    final clusters = FaceDetectionService.clusters;
+    final allClusters = FaceDetectionService.clusters;
+    final pendingClusters = allClusters.where((p) => p.pendingPhotoCount > 0).toList();
+    final completedClusters = allClusters.where((p) => p.pendingPhotoCount == 0 && p.photoCount > 0).toList();
+    final displayedClusters = _showCompleted ? allClusters : pendingClusters;
+
     final groupPhotos = FaceDetectionService.groupPhotos;
+    final pendingGroupPhotos = groupPhotos.where((i) => i.decision == null).toList();
     final isScanning = FaceDetectionService.isScanning;
     final isCoolingDown = FaceDetectionService.isCoolingDown;
     final coolingSec = FaceDetectionService.coolingDownSecondsRemaining;
@@ -138,6 +144,16 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
         ),
         actions: [
+          if (completedClusters.isNotEmpty)
+            IconButton(
+              icon: Icon(
+                _showCompleted ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                color: _showCompleted ? const Color(0xFF10B981) : Colors.white70,
+                size: 24,
+              ),
+              tooltip: _showCompleted ? 'Hide Reviewed People' : 'Show Reviewed People (${completedClusters.length})',
+              onPressed: () => setState(() => _showCompleted = !_showCompleted),
+            ),
           IconButton(
             icon: const Icon(
               Icons.restart_alt_rounded,
@@ -225,7 +241,7 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                                   ? '2 min thermal break (resuming automatically)'
                                   : isScanning
                                       ? '$scannedCount / $totalToScan photos analyzed'
-                                      : '${clusters.length} people identified',
+                                      : '${pendingClusters.length} people to review${completedClusters.isNotEmpty ? ' • ${completedClusters.length} cleaned' : ''}',
                               style: const TextStyle(color: Colors.white54, fontSize: 12),
                             ),
                           ],
@@ -267,14 +283,14 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
             ),
           ),
 
-          // Group Photos Card (if any group photos detected)
-          if (groupPhotos.isNotEmpty)
+          // Group Photos Card (if any pending group photos detected, or showing completed)
+          if (pendingGroupPhotos.isNotEmpty || (_showCompleted && groupPhotos.isNotEmpty))
             GestureDetector(
               onTap: () {
                 final groupCluster = PersonCluster(
                   id: 'group_photos',
                   name: 'Group Photos',
-                  items: groupPhotos,
+                  items: _showCompleted ? groupPhotos : pendingGroupPhotos,
                   featureVector: [],
                 );
                 Navigator.push(
@@ -316,7 +332,7 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${groupPhotos.length} photos with 2 or more people',
+                            '${pendingGroupPhotos.length} photos to review${_showCompleted ? ' (${groupPhotos.length} total)' : ''}',
                             style: const TextStyle(color: Colors.white54, fontSize: 12),
                           ),
                         ],
@@ -351,7 +367,7 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
 
           // People Grid
           Expanded(
-            child: clusters.isEmpty
+            child: allClusters.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -401,33 +417,82 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                       ),
                     ),
                   )
-                : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.88,
-                    ),
-                    itemCount: clusters.length,
-                    itemBuilder: (ctx, index) {
-                      final person = clusters[index];
-                      return _PersonCard(
-                        person: person,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PersonPhotosScreen(
-                                person: person,
-                                onUpdated: () => setState(() {}),
+                : displayedClusters.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: Color(0xFF10B981),
+                                  size: 56,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'All People Cleaned!',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'All photos for detected people have been reviewed and cleaned.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+                              ),
+                              if (completedClusters.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF10B981),
+                                  ),
+                                  onPressed: () => setState(() => _showCompleted = true),
+                                  icon: const Icon(Icons.visibility_rounded, size: 18),
+                                  label: Text('View Reviewed People (${completedClusters.length})'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.88,
+                        ),
+                        itemCount: displayedClusters.length,
+                        itemBuilder: (ctx, index) {
+                          final person = displayedClusters[index];
+                          return _PersonCard(
+                            person: person,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PersonPhotosScreen(
+                                    person: person,
+                                    onUpdated: () => setState(() {}),
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
           ),
         ],
       ),
@@ -461,7 +526,10 @@ class _PersonCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.6),
+                  color: (person.pendingPhotoCount > 0
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFF10B981))
+                      .withValues(alpha: 0.6),
                   width: 2.5,
                 ),
               ),
@@ -494,13 +562,20 @@ class _PersonCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                color: (person.pendingPhotoCount > 0
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF10B981))
+                    .withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${person.photoCount} photos',
-                style: const TextStyle(
-                  color: Color(0xFF7C3AED),
+                person.pendingPhotoCount > 0
+                    ? '${person.pendingPhotoCount} to clean'
+                    : 'Cleaned',
+                style: TextStyle(
+                  color: person.pendingPhotoCount > 0
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF10B981),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
