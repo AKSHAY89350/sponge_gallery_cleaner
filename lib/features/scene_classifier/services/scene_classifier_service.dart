@@ -66,7 +66,10 @@ class SceneClassifierService {
       final sceneryIds = prefs.getStringList('scene_scenery_ids')?.toSet() ?? {};
       final docIds = prefs.getStringList('scene_document_ids')?.toSet() ?? {};
 
-      final itemMap = {for (final item in allItems) item.id: item};
+      final Map<String, GalleryMediaItem> itemMap = {};
+      for (final item in allItems) {
+        itemMap[item.id] = item;
+      }
 
       foodPhotos.clear();
       sceneryPhotos.clear();
@@ -93,6 +96,26 @@ class SceneClassifierService {
     }
   }
 
+  /// Remove permanently deleted media from scene categories and cache
+  static Future<void> onItemsDeleted(List<String> deletedIds) async {
+    final delSet = deletedIds.toSet();
+    foodPhotos.removeWhere((i) => delSet.contains(i.id));
+    sceneryPhotos.removeWhere((i) => delSet.contains(i.id));
+    documentPhotos.removeWhere((i) => delSet.contains(i.id));
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('scene_food_ids', foodPhotos.map((i) => i.id).toList());
+      await prefs.setStringList('scene_scenery_ids', sceneryPhotos.map((i) => i.id).toList());
+      await prefs.setStringList('scene_document_ids', documentPhotos.map((i) => i.id).toList());
+      for (final id in deletedIds) {
+        await prefs.remove('scene_scanned_$id');
+      }
+    } catch (e) {
+      debugPrint('Error updating scene cache after deletion: $e');
+    }
+  }
+
   static void stopScanning() {
     isScanning = false;
   }
@@ -106,6 +129,9 @@ class SceneClassifierService {
     if (isScanning) return;
     isScanning = true;
 
+    final tempDir = Directory.systemTemp;
+    final tempScanFile = File('${tempDir.path}/scene_scan_temp.jpg');
+
     final Set<String> foodIds = {};
     final Set<String> sceneryIds = {};
     final Set<String> docIds = {};
@@ -117,9 +143,6 @@ class SceneClassifierService {
       foodIds.addAll(prefs.getStringList('scene_food_ids') ?? []);
       sceneryIds.addAll(prefs.getStringList('scene_scenery_ids') ?? []);
       docIds.addAll(prefs.getStringList('scene_document_ids') ?? []);
-
-      final tempDir = Directory.systemTemp;
-      final tempScanFile = File('${tempDir.path}/scene_scan_temp.jpg');
 
       final photoCandidates = allItems
           .where((i) => !i.isVideo && !i.isScreenshot && i.decision == null)
@@ -213,6 +236,12 @@ class SceneClassifierService {
     } catch (e) {
       debugPrint('Scene classification error: $e');
     } finally {
+      try {
+        if (await tempScanFile.exists()) {
+          await tempScanFile.delete();
+        }
+      } catch (_) {}
+
       if (prefsInstance != null) {
         await prefsInstance.setStringList('scene_food_ids', foodIds.toList());
         await prefsInstance.setStringList('scene_scenery_ids', sceneryIds.toList());

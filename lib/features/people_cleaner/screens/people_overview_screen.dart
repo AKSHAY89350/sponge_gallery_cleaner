@@ -13,6 +13,19 @@ class PeopleOverviewScreen extends StatefulWidget {
 }
 
 class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<GalleryProvider>();
+      if (provider.allItems.isNotEmpty && !FaceDetectionService.isInitialized) {
+        FaceDetectionService.initialize(provider.allItems).then((_) {
+          if (mounted) setState(() {});
+        });
+      }
+    });
+  }
+
   void _triggerScan() {
     final provider = context.read<GalleryProvider>();
     if (FaceDetectionService.isScanning) {
@@ -31,6 +44,20 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<GalleryProvider>();
+
+    if (provider.allItems.isNotEmpty &&
+        !FaceDetectionService.isInitialized &&
+        !FaceDetectionService.isScanning) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!FaceDetectionService.isInitialized && mounted) {
+          FaceDetectionService.initialize(provider.allItems).then((_) {
+            if (mounted) setState(() {});
+          });
+        }
+      });
+    }
+
     final clusters = FaceDetectionService.clusters;
     final groupPhotos = FaceDetectionService.groupPhotos;
     final isScanning = FaceDetectionService.isScanning;

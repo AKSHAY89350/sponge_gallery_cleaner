@@ -4,6 +4,7 @@ import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dar
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/models/person_cluster.dart';
+import 'package:sponge_gallery_cleaner/features/people_cleaner/services/face_detection_service.dart';
 
 class PersonPhotosScreen extends StatefulWidget {
   final PersonCluster person;
@@ -58,6 +59,7 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
                 setState(() => widget.person.name = newName);
+                FaceDetectionService.saveClusters();
                 widget.onUpdated();
               }
               Navigator.pop(ctx);

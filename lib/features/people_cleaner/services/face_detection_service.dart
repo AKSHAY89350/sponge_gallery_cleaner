@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
@@ -22,9 +23,79 @@ class FaceDetectionService {
   static bool isScanning = false;
   static int scannedCount = 0;
   static int totalToScan = 0;
+  static bool isInitialized = false;
 
   static double get scanProgress =>
       totalToScan > 0 ? (scannedCount / totalToScan) : 0.0;
+
+  /// Initialize cached face clusters & group photos from SharedPreferences
+  static Future<void> initialize(List<GalleryMediaItem> allItems) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clusterStrings = prefs.getStringList('face_clusters_json') ?? [];
+      final groupIds = prefs.getStringList('face_group_photo_ids')?.toSet() ?? {};
+
+      final Map<String, GalleryMediaItem> itemMap = {};
+      for (final item in allItems) {
+        itemMap[item.id] = item;
+      }
+
+      clusters.clear();
+      for (final s in clusterStrings) {
+        try {
+          final json = jsonDecode(s) as Map<String, dynamic>;
+          final cluster = PersonCluster.fromJson(json, itemMap);
+          if (cluster.items.isNotEmpty) {
+            clusters.add(cluster);
+          }
+        } catch (e) {
+          debugPrint('Error deserializing person cluster: $e');
+        }
+      }
+
+      groupPhotos.clear();
+      for (final id in groupIds) {
+        final item = itemMap[id];
+        if (item != null) groupPhotos.add(item);
+      }
+
+      isInitialized = true;
+    } catch (e) {
+      debugPrint('FaceDetectionService initialize error: $e');
+    }
+  }
+
+  /// Persist clusters and group photos to SharedPreferences
+  static Future<void> saveClusters() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clusterStrings = clusters.map((c) => jsonEncode(c.toJson())).toList();
+      await prefs.setStringList('face_clusters_json', clusterStrings);
+      await prefs.setStringList(
+          'face_group_photo_ids', groupPhotos.map((i) => i.id).toList());
+    } catch (e) {
+      debugPrint('Error saving face clusters: $e');
+    }
+  }
+
+  /// Remove permanently deleted media from clusters and cache
+  static Future<void> onItemsDeleted(List<String> deletedIds) async {
+    final delSet = deletedIds.toSet();
+    groupPhotos.removeWhere((i) => delSet.contains(i.id));
+    for (final cluster in clusters) {
+      cluster.items.removeWhere((i) => delSet.contains(i.id));
+    }
+    clusters.removeWhere((c) => c.items.isEmpty);
+
+    await saveClusters();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final id in deletedIds) {
+        await prefs.remove('face_scanned_$id');
+      }
+    } catch (_) {}
+  }
 
   /// Analyze a batch of unscanned photos
   static Future<void> scanGalleryForFaces({
@@ -35,10 +106,11 @@ class FaceDetectionService {
     if (isScanning) return;
     isScanning = true;
 
+    final tempDir = Directory.systemTemp;
+    final tempScanFile = File('${tempDir.path}/face_scan_temp.jpg');
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      final tempDir = Directory.systemTemp;
-      final tempScanFile = File('${tempDir.path}/face_scan_temp.jpg');
 
       // Filter only photos (skip videos and screenshots)
       final photoCandidates = allItems
@@ -80,9 +152,12 @@ class FaceDetectionService {
                     (b.boundingBox.width * b.boundingBox.height)
                         .compareTo(a.boundingBox.width * a.boundingBox.height));
 
+              bool hasChange = false;
+
               if (validFaces.length >= 2) {
-                if (!groupPhotos.any((i) => i.id == item.id)) {
+                if (!groupPhotos.any((it) => it.id == item.id)) {
                   groupPhotos.add(item);
+                  hasChange = true;
                 }
               }
 
@@ -115,7 +190,12 @@ class FaceDetectionService {
                   }
 
                   _matchAndCluster(item, features, avatarBytes);
+                  hasChange = true;
                 }
+              }
+
+              if (hasChange) {
+                await saveClusters();
               }
             }
           }
@@ -123,12 +203,20 @@ class FaceDetectionService {
         } catch (_) {}
 
         scannedCount++;
-        if (i % 5 == 0) {
+        if (i % 5 == 0 || i == processList.length - 1) {
           onProgress();
           await Future.delayed(const Duration(milliseconds: 10)); // UI smoothness
         }
       }
     } finally {
+      // Secure cleanup of temporary scan file
+      try {
+        if (await tempScanFile.exists()) {
+          await tempScanFile.delete();
+        }
+      } catch (_) {}
+
+      await saveClusters();
       isScanning = false;
       onProgress();
     }

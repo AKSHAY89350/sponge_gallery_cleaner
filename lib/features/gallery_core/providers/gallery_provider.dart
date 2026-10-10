@@ -4,6 +4,8 @@ import 'package:disk_space_2/disk_space_2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sponge_gallery_cleaner/core/utils/blur_detector.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
+import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
+import 'package:sponge_gallery_cleaner/features/people_cleaner/services/face_detection_service.dart';
 import 'dart:math';
 
 class GalleryProvider extends ChangeNotifier {
@@ -615,6 +617,10 @@ class GalleryProvider extends ChangeNotifier {
       g.removeWhere((i) => deletedIds.contains(i.id));
     }
     similarPhotoGroups.removeWhere((g) => g.length < 2);
+
+    // Prune deleted items from AI Scene & Face services
+    SceneClassifierService.onItemsDeleted(deletedIds);
+    FaceDetectionService.onItemsDeleted(deletedIds);
 
     // Refetch disk space so the home screen storage widget updates!
     await fetchDiskSpace();
