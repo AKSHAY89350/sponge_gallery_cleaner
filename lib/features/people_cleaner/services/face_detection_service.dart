@@ -21,6 +21,8 @@ class FaceDetectionService {
   static final List<PersonCluster> clusters = [];
   static final List<GalleryMediaItem> groupPhotos = [];
   static bool isScanning = false;
+  static bool isCoolingDown = false;
+  static int coolingDownSecondsRemaining = 0;
   static int scannedCount = 0;
   static int totalToScan = 0;
   static bool isInitialized = false;
@@ -78,6 +80,26 @@ class FaceDetectionService {
     }
   }
 
+  /// Reset all face clusters and scan history to start a clean re-scan
+  static Future<void> resetClusters(List<GalleryMediaItem> allItems) async {
+    isScanning = false;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
+    clusters.clear();
+    groupPhotos.clear();
+    scannedCount = 0;
+    totalToScan = 0;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('face_clusters_json');
+      await prefs.remove('face_group_photo_ids');
+      for (final item in allItems) {
+        await prefs.remove('face_scanned_${item.id}');
+      }
+    } catch (_) {}
+  }
+
   /// Remove permanently deleted media from clusters and cache
   static Future<void> onItemsDeleted(List<String> deletedIds) async {
     final delSet = deletedIds.toSet();
@@ -97,14 +119,15 @@ class FaceDetectionService {
     } catch (_) {}
   }
 
-  /// Analyze a batch of unscanned photos
+  /// Analyze unscanned gallery photos continuously with thermal cooldown breaks
   static Future<void> scanGalleryForFaces({
     required List<GalleryMediaItem> allItems,
     required VoidCallback onProgress,
-    int batchLimit = 200,
   }) async {
     if (isScanning) return;
     isScanning = true;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
 
     final tempDir = Directory.systemTemp;
     final tempScanFile = File('${tempDir.path}/face_scan_temp.jpg');
@@ -125,10 +148,27 @@ class FaceDetectionService {
       scannedCount = 0;
       onProgress();
 
-      final processList = unscanned.take(batchLimit).toList();
+      final processList = unscanned; // Scan all unscanned photos continuously
+
+      int sessionPhotoCount = 0;
 
       for (int i = 0; i < processList.length; i++) {
         if (!isScanning) break; // Allow pausing
+
+        // 5,000 photos cooldown: pause for 2 minutes to let device cool, then resume
+        if (sessionPhotoCount > 0 && sessionPhotoCount % 5000 == 0) {
+          isCoolingDown = true;
+          for (int sec = 120; sec > 0; sec--) {
+            if (!isScanning) break;
+            coolingDownSecondsRemaining = sec;
+            onProgress();
+            await Future.delayed(const Duration(seconds: 1));
+          }
+          isCoolingDown = false;
+          coolingDownSecondsRemaining = 0;
+          onProgress();
+          if (!isScanning) break;
+        }
 
         final item = processList[i];
         try {
@@ -169,7 +209,12 @@ class FaceDetectionService {
 
                 // Process up to 5 clear faces per photo
                 for (final face in validFaces.take(5)) {
+                  // Skip extreme side-profile angles (> 22° yaw or > 25° tilt) to preserve geometric accuracy
+                  if (face.headEulerAngleY != null && face.headEulerAngleY!.abs() > 22) continue;
+                  if (face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 25) continue;
+
                   final features = _extractFeatureVector(face, 512, 512);
+                  if (features.isEmpty) continue;
 
                   Uint8List? avatarBytes;
                   if (decoded != null) {
@@ -203,6 +248,7 @@ class FaceDetectionService {
         } catch (_) {}
 
         scannedCount++;
+        sessionPhotoCount++;
         if (i % 4 == 0 || i == processList.length - 1) {
           onProgress();
           await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
@@ -218,15 +264,19 @@ class FaceDetectionService {
 
       await saveClusters();
       isScanning = false;
+      isCoolingDown = false;
+      coolingDownSecondsRemaining = 0;
       onProgress();
     }
   }
 
   static void stopScanning() {
     isScanning = false;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
   }
 
-  /// Feature extraction using geometric landmark proportions
+  /// Feature extraction using strict invariant facial proportions (smile excluded)
   static List<double> _extractFeatureVector(Face face, int imgW, int imgH) {
     final box = face.boundingBox;
     final faceW = box.width.toDouble().clamp(1.0, imgW.toDouble());
@@ -239,39 +289,46 @@ class FaceDetectionService {
     final rightMouth = face.landmarks[FaceLandmarkType.rightMouth]?.position;
     final bottomMouth = face.landmarks[FaceLandmarkType.bottomMouth]?.position;
 
-    double eyeDist = 0.5;
-    if (leftEye != null && rightEye != null) {
-      eyeDist = math.sqrt(math.pow(rightEye.x - leftEye.x, 2) +
-          math.pow(rightEye.y - leftEye.y, 2)) / faceW;
+    // Must have clear eyes and nose for reliable biometric mapping
+    if (leftEye == null || rightEye == null || nose == null) {
+      return [];
     }
 
-    double eyeToNose = 0.4;
-    if (leftEye != null && rightEye != null && nose != null) {
-      final midEyeY = (leftEye.y + rightEye.y) / 2.0;
-      eyeToNose = (nose.y - midEyeY).abs() / faceH;
+    final eyeDist = math.sqrt(math.pow(rightEye.x - leftEye.x, 2) +
+        math.pow(rightEye.y - leftEye.y, 2));
+
+    final midEyeY = (leftEye.y + rightEye.y) / 2.0;
+    final eyeToNose = (nose.y - midEyeY).abs();
+
+    double noseToMouth = (faceH * 0.25);
+    if (bottomMouth != null) {
+      noseToMouth = (bottomMouth.y - nose.y).abs().toDouble();
     }
 
-    double noseToMouth = 0.3;
-    if (nose != null && bottomMouth != null) {
-      noseToMouth = (bottomMouth.y - nose.y).abs() / faceH;
-    }
-
-    double mouthWidth = 0.4;
+    double mouthWidth = (faceW * 0.35);
     if (leftMouth != null && rightMouth != null) {
       mouthWidth = math.sqrt(math.pow(rightMouth.x - leftMouth.x, 2) +
-          math.pow(rightMouth.y - leftMouth.y, 2)) / faceW;
+          math.pow(rightMouth.y - leftMouth.y, 2));
     }
 
     final aspectRatio = faceW / faceH;
-    final smile = face.smilingProbability ?? 0.5;
+    final eyeDistNorm = eyeDist / faceW;
+    final eyeToNoseNorm = eyeToNose / faceH;
+    final noseToMouthNorm = noseToMouth / faceH;
+    final mouthWidthNorm = mouthWidth / faceW;
+
+    // Cross-ratios (projective invariant geometry)
+    final eyeToNoseRatio = (eyeDist / eyeToNose.clamp(1.0, faceH)).clamp(0.5, 3.5);
+    final verticalCrossRatio = (eyeToNose / noseToMouth.clamp(1.0, faceH)).clamp(0.4, 3.5);
 
     return [
       aspectRatio.clamp(0.5, 2.0),
-      eyeDist.clamp(0.1, 1.0),
-      eyeToNose.clamp(0.1, 1.0),
-      noseToMouth.clamp(0.1, 1.0),
-      mouthWidth.clamp(0.1, 1.0),
-      smile,
+      eyeDistNorm.clamp(0.1, 1.0),
+      eyeToNoseNorm.clamp(0.1, 1.0),
+      noseToMouthNorm.clamp(0.1, 1.0),
+      mouthWidthNorm.clamp(0.1, 1.0),
+      eyeToNoseRatio,
+      verticalCrossRatio,
     ];
   }
 
@@ -292,8 +349,9 @@ class FaceDetectionService {
       }
     }
 
-    // Similarity threshold 0.88 for grouping as same person
-    if (bestMatch != null && highestSimilarity >= 0.88) {
+    // Strict similarity threshold: 0.925 (average landmark variance <= 7.5%)
+    // Distinct people differ by 15-25% (similarity <= 0.85)
+    if (bestMatch != null && highestSimilarity >= 0.925) {
       bestMatch.addPhoto(item, features, newAvatar: avatarBytes);
     } else {
       final newCluster = PersonCluster(

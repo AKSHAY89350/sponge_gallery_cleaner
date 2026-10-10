@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 
@@ -30,30 +29,29 @@ class PersonCluster {
     if (avatarBytes == null && newAvatar != null) {
       avatarBytes = newAvatar;
     }
-    // Update feature vector centroid
+    // Update centroid very conservatively to prevent snowball cluster drift
     if (featureVector.length == newFeatures.length) {
       for (int i = 0; i < featureVector.length; i++) {
-        featureVector[i] = (featureVector[i] * 0.75) + (newFeatures[i] * 0.25);
+        featureVector[i] = (featureVector[i] * 0.93) + (newFeatures[i] * 0.07);
       }
     }
   }
 
-  /// Calculates cosine similarity between this person's centroid and a target vector
+  /// Calculates biometric similarity (0.0 to 1.0) using normalized geometric proportion difference
   double calculateSimilarity(List<double> other) {
     if (featureVector.isEmpty || other.isEmpty || featureVector.length != other.length) {
       return 0.0;
     }
-    double dotProduct = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
+    double totalError = 0.0;
     for (int i = 0; i < featureVector.length; i++) {
-      dotProduct += featureVector[i] * other[i];
-      normA += featureVector[i] * featureVector[i];
-      normB += other[i] * other[i];
+      final a = featureVector[i];
+      final b = other[i];
+      if (a <= 0 || b <= 0) continue;
+      totalError += (a - b).abs() / a;
     }
-
-    if (normA <= 0 || normB <= 0) return 0.0;
-    return dotProduct / (math.sqrt(normA) * math.sqrt(normB));
+    final avgError = totalError / featureVector.length;
+    // 0 error = 1.0 match. If average landmark difference is 7%, similarity is 0.93.
+    return (1.0 - avgError).clamp(0.0, 1.0);
   }
 
   Map<String, dynamic> toJson() {

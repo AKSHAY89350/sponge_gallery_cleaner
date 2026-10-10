@@ -53,6 +53,49 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
     }
   }
 
+  Future<void> _confirmReset() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16181F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reset Face Clusters?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'This will clear previously grouped face clusters and scan history so you can run a fresh, accurate biometric re-scan.',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reset & Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final allItems = context.read<GalleryProvider>().allItems;
+      await FaceDetectionService.resetClusters(allItems);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Face clusters cleared. Tap "Start Face Scan" to re-scan.'),
+          backgroundColor: Color(0xFF16181F),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GalleryProvider>();
@@ -79,6 +122,8 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
     final clusters = FaceDetectionService.clusters;
     final groupPhotos = FaceDetectionService.groupPhotos;
     final isScanning = FaceDetectionService.isScanning;
+    final isCoolingDown = FaceDetectionService.isCoolingDown;
+    final coolingSec = FaceDetectionService.coolingDownSecondsRemaining;
     final scannedCount = FaceDetectionService.scannedCount;
     final totalToScan = FaceDetectionService.totalToScan;
     final progress = FaceDetectionService.scanProgress;
@@ -93,6 +138,15 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.restart_alt_rounded,
+              color: Colors.white70,
+              size: 24,
+            ),
+            tooltip: 'Reset & Re-scan Faces',
+            onPressed: _confirmReset,
+          ),
           IconButton(
             icon: Icon(
               isScanning ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
@@ -114,9 +168,11 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
               color: const Color(0xFF16181F),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isScanning
-                    ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
-                    : Colors.white.withValues(alpha: 0.05),
+                color: isCoolingDown
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                    : isScanning
+                        ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
+                        : Colors.white.withValues(alpha: 0.05),
               ),
             ),
             child: Column(
@@ -130,12 +186,21 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                            color: (isCoolingDown
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF7C3AED))
+                                .withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
-                            isScanning ? Icons.sync_rounded : Icons.face_retouching_natural_rounded,
-                            color: const Color(0xFF7C3AED),
+                            isCoolingDown
+                                ? Icons.ac_unit_rounded
+                                : isScanning
+                                    ? Icons.sync_rounded
+                                    : Icons.face_retouching_natural_rounded,
+                            color: isCoolingDown
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF7C3AED),
                             size: 20,
                           ),
                         ),
@@ -144,17 +209,23 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isScanning ? 'Scanning for Faces...' : 'On-Device Face Scanner',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              isCoolingDown
+                                  ? 'Cooling Down (${coolingSec}s)...'
+                                  : isScanning
+                                      ? 'Scanning for Faces...'
+                                      : 'On-Device Face Scanner',
+                              style: TextStyle(
+                                color: isCoolingDown ? const Color(0xFFF59E0B) : Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                               ),
                             ),
                             Text(
-                              isScanning
-                                  ? '$scannedCount / $totalToScan photos analyzed'
-                                  : '${clusters.length} people identified',
+                              isCoolingDown
+                                  ? '2 min thermal break (resuming automatically)'
+                                  : isScanning
+                                      ? '$scannedCount / $totalToScan photos analyzed'
+                                      : '${clusters.length} people identified',
                               style: const TextStyle(color: Colors.white54, fontSize: 12),
                             ),
                           ],
@@ -185,7 +256,9 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                     child: LinearProgressIndicator(
                       value: progress.clamp(0.0, 1.0),
                       backgroundColor: Colors.white10,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isCoolingDown ? const Color(0xFFF59E0B) : const Color(0xFF7C3AED),
+                      ),
                       minHeight: 5,
                     ),
                   ),

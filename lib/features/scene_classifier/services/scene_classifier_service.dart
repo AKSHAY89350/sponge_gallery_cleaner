@@ -15,6 +15,8 @@ class SceneClassifierService {
   static final List<GalleryMediaItem> documentPhotos = [];
 
   static bool isScanning = false;
+  static bool isCoolingDown = false;
+  static int coolingDownSecondsRemaining = 0;
   static int scannedCount = 0;
   static int totalToScan = 0;
   static bool isInitialized = false;
@@ -118,16 +120,19 @@ class SceneClassifierService {
 
   static void stopScanning() {
     isScanning = false;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
   }
 
-  /// Scan gallery photos for scenes, food, and documents
+  /// Scan gallery photos for scenes, food, and documents continuously
   static Future<void> scanGalleryForScenes({
     required List<GalleryMediaItem> allItems,
     required VoidCallback onProgress,
-    int batchLimit = 300,
   }) async {
     if (isScanning) return;
     isScanning = true;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
 
     final tempDir = Directory.systemTemp;
     final tempScanFile = File('${tempDir.path}/scene_scan_temp.jpg');
@@ -156,10 +161,27 @@ class SceneClassifierService {
       scannedCount = 0;
       onProgress();
 
-      final processList = unscanned.take(batchLimit).toList();
+      final processList = unscanned;
+
+      int sessionPhotoCount = 0;
 
       for (int i = 0; i < processList.length; i++) {
         if (!isScanning) break;
+
+        // 5,000 photos cooldown: pause for 2 minutes to let device cool, then resume
+        if (sessionPhotoCount > 0 && sessionPhotoCount % 5000 == 0) {
+          isCoolingDown = true;
+          for (int sec = 120; sec > 0; sec--) {
+            if (!isScanning) break;
+            coolingDownSecondsRemaining = sec;
+            onProgress();
+            await Future.delayed(const Duration(seconds: 1));
+          }
+          isCoolingDown = false;
+          coolingDownSecondsRemaining = 0;
+          onProgress();
+          if (!isScanning) break;
+        }
 
         final item = processList[i];
         try {
@@ -229,6 +251,7 @@ class SceneClassifierService {
         }
 
         scannedCount++;
+        sessionPhotoCount++;
         if (i % 4 == 0 || i == processList.length - 1) {
           onProgress();
           await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
@@ -249,6 +272,8 @@ class SceneClassifierService {
         await prefsInstance.setStringList('scene_document_ids', docIds.toList());
       }
       isScanning = false;
+      isCoolingDown = false;
+      coolingDownSecondsRemaining = 0;
       onProgress();
     }
   }

@@ -523,7 +523,9 @@ class _HomeTabState extends State<_HomeTab> {
               color: const Color(0xFF16181F),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                color: SceneClassifierService.isCoolingDown
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                    : const Color(0xFF10B981).withValues(alpha: 0.3),
               ),
             ),
             child: Column(
@@ -533,17 +535,23 @@ class _HomeTabState extends State<_HomeTab> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Analyzing photos: ${SceneClassifierService.scannedCount} / ${SceneClassifierService.totalToScan}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      SceneClassifierService.isCoolingDown
+                          ? 'Cooling break (${SceneClassifierService.coolingDownSecondsRemaining}s) - auto resuming...'
+                          : 'Analyzing photos: ${SceneClassifierService.scannedCount} / ${SceneClassifierService.totalToScan}',
+                      style: TextStyle(
+                        color: SceneClassifierService.isCoolingDown
+                            ? const Color(0xFFF59E0B)
+                            : Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       '${(SceneClassifierService.scanProgress * 100).toInt()}%',
-                      style: const TextStyle(
-                        color: Color(0xFF10B981),
+                      style: TextStyle(
+                        color: SceneClassifierService.isCoolingDown
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF10B981),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -556,8 +564,11 @@ class _HomeTabState extends State<_HomeTab> {
                   child: LinearProgressIndicator(
                     value: SceneClassifierService.scanProgress,
                     backgroundColor: Colors.white10,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF10B981)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      SceneClassifierService.isCoolingDown
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF10B981),
+                    ),
                     minHeight: 4,
                   ),
                 ),
