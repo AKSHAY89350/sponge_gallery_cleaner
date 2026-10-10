@@ -166,10 +166,10 @@ class FaceDetectionService {
       for (int i = 0; i < processList.length; i++) {
         if (!isScanning) break; // Allow pausing
 
-        // 5,000 photos cooldown: pause for 2 minutes to let device cool, then resume
-        if (sessionPhotoCount > 0 && sessionPhotoCount % 5000 == 0) {
+        // 500 photos cooldown: pause for 1 minute to let device cool, then resume
+        if (sessionPhotoCount > 0 && sessionPhotoCount % 500 == 0) {
           isCoolingDown = true;
-          for (int sec = 120; sec > 0; sec--) {
+          for (int sec = 60; sec > 0; sec--) {
             if (!isScanning) break;
             coolingDownSecondsRemaining = sec;
             onProgress();

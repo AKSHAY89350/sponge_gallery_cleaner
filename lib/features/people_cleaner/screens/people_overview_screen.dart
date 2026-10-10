@@ -238,7 +238,7 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
                             ),
                             Text(
                               isCoolingDown
-                                  ? '2 min thermal break (resuming automatically)'
+                                  ? '1 min thermal break (resuming automatically)'
                                   : isScanning
                                       ? '$scannedCount / $totalToScan photos analyzed'
                                       : '${pendingClusters.length} people to review${completedClusters.isNotEmpty ? ' • ${completedClusters.length} cleaned' : ''}',
