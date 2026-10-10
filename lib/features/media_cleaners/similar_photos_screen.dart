@@ -196,7 +196,9 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               padding: const EdgeInsets.symmetric(horizontal: 12),
             ),
-            onPressed: () => _keepSelectedAndTrashRest(liveGroups),
+            onPressed: _selectedToKeepIds.isEmpty
+                ? null
+                : () => _keepSelectedAndTrashRest(liveGroups),
             icon: const Icon(Icons.check_rounded, size: 16),
             label: const Text('Keep selected', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),

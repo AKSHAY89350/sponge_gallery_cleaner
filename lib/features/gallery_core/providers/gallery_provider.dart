@@ -62,6 +62,19 @@ class GalleryProvider extends ChangeNotifier {
 
   List<List<GalleryMediaItem>> similarPhotoGroups = [];
 
+  int get similarPhotosCount {
+    return similarPhotoGroups
+        .map((group) => group.where((i) => i.decision == null).toList())
+        .where((group) => group.length > 1)
+        .fold(0, (sum, g) => sum + g.length);
+  }
+
+  int get whatsappJunkCount =>
+      whatsappGroup?.items.where((i) => i.decision == null).length ?? 0;
+
+  int get screenshotsCount =>
+      screenshotsGroup?.items.where((i) => i.decision == null).length ?? 0;
+
   Future<void> fetchDiskSpace() async {
     try {
       totalDiskSpaceMB = await DiskSpace.getTotalDiskSpace;
@@ -111,8 +124,8 @@ class GalleryProvider extends ChangeNotifier {
     }
   }
 
-  List<AssetEntity> _initialAssets = [];
   Future<void> loadGallery() async {
+    if (isLoading) return;
     isLoading = true;
     notifyListeners();
 
@@ -129,30 +142,99 @@ class GalleryProvider extends ChangeNotifier {
       final Map<String, List<GalleryMediaItem>> byMonth = {};
       final List<GalleryMediaItem> screenshots = [];
       final List<GalleryMediaItem> whatsappItems = [];
-      final List<GalleryMediaItem> largeFiles = [];
       allItems = [];
+      _stagingBin.clear();
+      largeFiles10To100 = null;
+      largeFiles100To500 = null;
+      largeFiles500To1GB = null;
+      largeFilesOver1GB = null;
+      screenshotsGroup = null;
+      whatsappGroup = null;
+      blurryGroup = null;
 
       final prefs = await SharedPreferences.getInstance();
 
       if (albums.isNotEmpty) {
+        // 1. Collect asset IDs from specialized WhatsApp & Screenshot albums
+        final whatsappAssetIds = <String>{};
+        final screenshotAssetIds = <String>{};
+        final Set<String> processedAssetIds = {};
+        final List<AssetEntity> allAssets = [];
+
+        for (final album in albums) {
+          final nameLower = album.name.toLowerCase();
+          if (nameLower.contains('whatsapp')) {
+            final count = await album.assetCountAsync;
+            final list = await album.getAssetListRange(start: 0, end: count);
+            for (final a in list) {
+              whatsappAssetIds.add(a.id);
+            }
+          } else if (nameLower.contains('screenshot')) {
+            final count = await album.assetCountAsync;
+            final list = await album.getAssetListRange(start: 0, end: count);
+            for (final a in list) {
+              screenshotAssetIds.add(a.id);
+            }
+          }
+        }
+
+        // 2. Fetch all assets from allAlbum (Recents/All)
         final allAlbum = albums.first;
         final total = await allAlbum.assetCountAsync;
-        final initialLoadEnd = total.clamp(0, 3000);
-        _initialAssets = await allAlbum.getAssetListRange(
-          start: 0,
-          end: initialLoadEnd,
-        );
 
-        for (final asset in _initialAssets) {
-          int fileSizeBytes = 0;
-          String filePath = "${asset.relativePath ?? ''}/${asset.title ?? ''}";
-          // 🚀 SKIPPING await asset.file HERE FOR INSTANT STARTUP 🚀
+        const chunkSize = 2500;
+        for (int i = 0; i < total; i += chunkSize) {
+          final end = (i + chunkSize).clamp(0, total);
+          final chunk = await allAlbum.getAssetListRange(start: i, end: end);
+          for (final a in chunk) {
+            if (processedAssetIds.add(a.id)) {
+              allAssets.add(a);
+            }
+          }
+        }
+
+        // 3. Also ensure any assets in WhatsApp/Screenshot albums that weren't in allAlbum get included
+        for (final album in albums) {
+          final nameLower = album.name.toLowerCase();
+          if (nameLower.contains('whatsapp') || nameLower.contains('screenshot')) {
+            final count = await album.assetCountAsync;
+            final list = await album.getAssetListRange(start: 0, end: count);
+            for (final a in list) {
+              if (processedAssetIds.add(a.id)) {
+                allAssets.add(a);
+              }
+            }
+          }
+        }
+
+        // 4. Convert all assets to GalleryMediaItem
+        for (final asset in allAssets) {
+          final titleLower = (asset.title ?? '').toLowerCase();
+          final relLower = (asset.relativePath ?? '').toLowerCase();
+          final filePath = "${asset.relativePath ?? ''}/${asset.title ?? ''}";
+
+          final isWhatsApp = whatsappAssetIds.contains(asset.id) ||
+              titleLower.contains('whatsapp') ||
+              titleLower.contains('-wa') ||
+              titleLower.startsWith('wa') ||
+              relLower.contains('whatsapp');
+
+          final isScreenshot = screenshotAssetIds.contains(asset.id) ||
+              titleLower.contains('screenshot') ||
+              titleLower.contains('screen_record') ||
+              relLower.contains('screenshot');
+
+          final dateTakenMs = asset.createDateTime.millisecondsSinceEpoch > 0
+              ? asset.createDateTime.millisecondsSinceEpoch
+              : (asset.modifiedDateTime.millisecondsSinceEpoch > 0
+                  ? asset.modifiedDateTime.millisecondsSinceEpoch
+                  : DateTime.now().millisecondsSinceEpoch);
 
           final item = GalleryMediaItem(
             id: asset.id,
             path: filePath,
-            dateTaken: asset.createDateTime.millisecondsSinceEpoch,
-            fileSize: fileSizeBytes,
+            dateTaken: dateTakenMs,
+            fileSize: 0,
             isVideo: asset.type == AssetType.video,
             videoDuration:
                 asset.type == AssetType.video ? asset.videoDuration : null,
@@ -161,8 +243,7 @@ class GalleryProvider extends ChangeNotifier {
             mimeType: asset.mimeType,
           );
 
-          // Load saved decision from prefs
-          // Load blurry state
+          // Restore saved blurry state
           final savedBlurry = prefs.getBool('blurry_${item.id}');
           if (savedBlurry != null) {
             item.isBlurry = savedBlurry;
@@ -172,13 +253,13 @@ class GalleryProvider extends ChangeNotifier {
                     label: 'Blurry Photos',
                     yearMonthKey: 'blurry_photos',
                     items: [item]);
-              } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
+              } else {
                 blurryGroup!.items.add(item);
               }
-              blurryGroup!.recalculateCurrentIndex();
             }
           }
 
+          // Restore saved decision
           final savedDecision = prefs.getString('decision_${item.id}');
           if (savedDecision != null) {
             item.decision = SwipeAction.values.firstWhere(
@@ -197,322 +278,104 @@ class GalleryProvider extends ChangeNotifier {
               '${item.dateTime.year}-${item.dateTime.month.toString().padLeft(2, '0')}';
           byMonth.putIfAbsent(key, () => []).add(item);
 
-          // Screenshots filter (by path or mime type)
-          final pathLower = item.path.toLowerCase();
-          if (pathLower.contains('screenshot') ||
-              pathLower.contains('screen_record')) {
+          if (isScreenshot) {
             screenshots.add(item);
           }
-          if (item.isWhatsApp) {
+          if (isWhatsApp) {
             whatsappItems.add(item);
           }
         }
-      }
 
-      // Build sorted month groups (newest first)
-      monthGroups = byMonth.entries.map((entry) {
-        final parts = entry.key.split('-');
-        final year = int.parse(parts[0]);
-        final month = int.parse(parts[1]);
-        final label = _monthLabel(month, year);
-        return MonthGroup(
-          label: label,
-          yearMonthKey: entry.key,
-          items: entry.value,
-        )..recalculateCurrentIndex();
-      }).toList()
-        ..sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
+        // Build sorted month groups (newest first)
+        monthGroups = byMonth.entries.map((entry) {
+          final parts = entry.key.split('-');
+          final year = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final label = _monthLabel(month, year);
+          return MonthGroup(
+            label: label,
+            yearMonthKey: entry.key,
+            items: entry.value,
+          )..recalculateCurrentIndex();
+        }).toList()
+          ..sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
 
-      if (screenshots.isNotEmpty) {
-        screenshotsGroup = MonthGroup(
-          label: 'Screenshots',
-          yearMonthKey: 'screenshots',
-          items: screenshots,
-          isScreenshots: true,
-        )..recalculateCurrentIndex();
-      }
-
-      if (whatsappItems.isNotEmpty) {
-        whatsappGroup = MonthGroup(
-          label: 'WhatsApp Junk',
-          yearMonthKey: 'whatsapp',
-          items: whatsappItems,
-        )..recalculateCurrentIndex();
-      }
-
-      // Random group - pick 20 random items
-      if (allItems.length > 5) {
-        final rng = Random();
-        final randomItems = List<GalleryMediaItem>.from(allItems)..shuffle(rng);
-        randomGroup = MonthGroup(
-          label: 'Random Clean',
-          yearMonthKey: 'random',
-          items: randomItems.take(20).toList(),
-        )..recalculateCurrentIndex();
-      }
-
-      // Recalculate trashed bytes
-      totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
-
-      isInitialized = true;
-
-      // Start background load if there's more data
-      if (albums.isNotEmpty) {
-        AssetPathEntity? screenshotAlbum;
-        for (final album in albums) {
-          if (album.name.toLowerCase().contains('screenshot')) {
-            screenshotAlbum = album;
-            break;
-          }
-        }
-        if (screenshotAlbum != null) {
-          _loadScreenshotsInBackground(screenshotAlbum);
+        if (screenshots.isNotEmpty) {
+          screenshotsGroup = MonthGroup(
+            label: 'Screenshots',
+            yearMonthKey: 'screenshots',
+            items: screenshots,
+            isScreenshots: true,
+          )..recalculateCurrentIndex();
         }
 
-        final total = await albums.first.assetCountAsync;
-        if (total > 3000) {
-          _loadRemainingBackground(albums.first, 3000, total.clamp(0, 50000));
+        if (whatsappItems.isNotEmpty) {
+          whatsappGroup = MonthGroup(
+            label: 'WhatsApp Junk',
+            yearMonthKey: 'whatsapp',
+            items: whatsappItems,
+          )..recalculateCurrentIndex();
         }
-      }
 
-      // Fetch sizes for initial items in background
-      // Fetch sizes for initial items in background
-      _fetchSizesForInitialItems(_initialAssets);
-      fetchDiskSpace();
-      _findSimilarPhotos();
-    } catch (e) {
-      debugPrint('Error loading gallery: $e');
-    }
-
-    isLoading = false;
-    notifyListeners();
-  }
-
-  Future<void> _loadScreenshotsInBackground(
-      AssetPathEntity screenshotAlbum) async {
-    final ssTotal = await screenshotAlbum.assetCountAsync;
-    final ssAssets = await screenshotAlbum.getAssetListRange(
-        start: 0, end: ssTotal.clamp(0, 5000));
-
-    final prefs = await SharedPreferences.getInstance();
-    final newScreenshots = <GalleryMediaItem>[];
-
-    for (final asset in ssAssets) {
-      if (screenshotsGroup?.items.any((i) => i.id == asset.id) ?? false)
-        continue;
-
-      int fileSizeBytes = 0;
-      String filePath = '';
-      try {
-        final originFile = await asset.file;
-        filePath = originFile?.path ?? '';
-        fileSizeBytes = originFile?.lengthSync() ?? 0;
-      } catch (_) {}
-
-      final item = GalleryMediaItem(
-        id: asset.id,
-        path: filePath,
-        dateTaken: asset.createDateTime.millisecondsSinceEpoch,
-        fileSize: fileSizeBytes,
-        isVideo: asset.type == AssetType.video,
-        videoDuration:
-            asset.type == AssetType.video ? asset.videoDuration : null,
-        width: asset.width,
-        height: asset.height,
-        mimeType: asset.mimeType,
-      );
-
-      // Load blurry state
-      final savedBlurry = prefs.getBool('blurry_${item.id}');
-      if (savedBlurry != null) {
-        item.isBlurry = savedBlurry;
-        if (savedBlurry) {
-          if (blurryGroup == null) {
-            blurryGroup = MonthGroup(
-                label: 'Blurry Photos',
-                yearMonthKey: 'blurry_photos',
-                items: [item]);
-          } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
-            blurryGroup!.items.add(item);
-          }
+        if (blurryGroup != null) {
           blurryGroup!.recalculateCurrentIndex();
         }
-      }
 
-      final savedDecision = prefs.getString('decision_${item.id}');
-      if (savedDecision != null) {
-        item.decision = SwipeAction.values.firstWhere(
-          (e) => e.name == savedDecision,
-          orElse: () => SwipeAction.keep,
-        );
-        if (item.decision == SwipeAction.trash) {
-          if (!_stagingBin.any((existing) => existing.id == item.id)) {
-            _stagingBin.add(item);
+        // Random group - pick 20 random items
+        if (allItems.length > 5) {
+          final rng = Random();
+          final availableItems =
+              allItems.where((i) => i.decision == null).toList();
+          if (availableItems.isNotEmpty) {
+            availableItems.shuffle(rng);
+            randomGroup = MonthGroup(
+              label: 'Random Clean',
+              yearMonthKey: 'random',
+              items: availableItems.take(20).toList(),
+            )..recalculateCurrentIndex();
           }
         }
-      }
 
-      newScreenshots.add(item);
-    }
+        totalTrashedBytes = _stagingBin.fold(0, (s, i) => s + i.fileSize);
+        isInitialized = true;
 
-    if (newScreenshots.isNotEmpty) {
-      if (screenshotsGroup == null) {
-        screenshotsGroup = MonthGroup(
-          label: 'Screenshots',
-          yearMonthKey: 'screenshots',
-          items: newScreenshots,
-          isScreenshots: true,
-        );
-      } else {
-        screenshotsGroup!.items.addAll(newScreenshots);
+        // Immediate complete analysis across all assets
+        _findSimilarPhotos();
+        fetchDiskSpace();
+
+        // Background size fetch for Large Files & Trashed Bytes
+        _fetchSizesForAssets(allAssets);
       }
-      screenshotsGroup!.items
-          .sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
-      screenshotsGroup!.recalculateCurrentIndex();
-      totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
+    } catch (e) {
+      debugPrint('Error loading gallery: $e');
+    } finally {
+      isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> _fetchSizesForInitialItems(List<AssetEntity> assets) async {
+  Future<void> _fetchSizesForAssets(List<AssetEntity> assets) async {
     for (int i = 0; i < assets.length; i++) {
       final asset = assets[i];
       try {
-        final file = await asset.file;
-        if (file != null) {
-          final size = file.lengthSync();
-          // Find the item and update it
-          for (final group in monthGroups) {
-            final idx = group.items.indexWhere((it) => it.id == asset.id);
-            if (idx != -1) {
-              group.items[idx].fileSize = size;
-              _categorizeLargeFile(group.items[idx]);
-              break;
-            }
+        final originFile = await asset.file;
+        if (originFile != null) {
+          final size = originFile.lengthSync();
+          final idx = allItems.indexWhere((it) => it.id == asset.id);
+          if (idx != -1) {
+            allItems[idx].fileSize = size;
+            _categorizeLargeFile(allItems[idx]);
           }
         }
       } catch (_) {}
 
-      if (i > 0 && i % 50 == 0) {
-        notifyListeners();
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> _loadRemainingBackground(
-      AssetPathEntity album, int start, int end) async {
-    isBackgroundLoading = true;
-    notifyListeners();
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final Map<String, List<GalleryMediaItem>> byMonthLocal = {};
-
-      // Process in chunks of 500 to keep UI extremely responsive
-      const chunkSize = 3000;
-      final totalToLoad = end - start;
-      for (int i = start; i < end; i += chunkSize) {
-        backgroundLoadProgress = (i - start) / totalToLoad;
-        final currentEnd = (i + chunkSize).clamp(start, end);
-        final assets = await album.getAssetListRange(start: i, end: currentEnd);
-        for (final asset in assets) {
-          int fileSizeBytes = 0;
-          String filePath = '';
-          try {
-            final originFile = await asset.file;
-            filePath = originFile?.path ?? '';
-            fileSizeBytes = originFile?.lengthSync() ?? 0;
-          } catch (_) {}
-
-          final item = GalleryMediaItem(
-            id: asset.id,
-            path: filePath,
-            dateTaken: asset.createDateTime.millisecondsSinceEpoch,
-            fileSize: fileSizeBytes,
-            isVideo: asset.type == AssetType.video,
-            videoDuration:
-                asset.type == AssetType.video ? asset.videoDuration : null,
-            width: asset.width,
-            height: asset.height,
-            mimeType: asset.mimeType,
-          );
-
-          allItems.add(item);
-          // Load blurry state
-          final savedBlurry = prefs.getBool('blurry_${item.id}');
-          if (savedBlurry != null) {
-            item.isBlurry = savedBlurry;
-            if (savedBlurry) {
-              if (blurryGroup == null) {
-                blurryGroup = MonthGroup(
-                    label: 'Blurry Photos',
-                    yearMonthKey: 'blurry_photos',
-                    items: [item]);
-              } else if (!blurryGroup!.items.any((i) => i.id == item.id)) {
-                blurryGroup!.items.add(item);
-              }
-              blurryGroup!.recalculateCurrentIndex();
-            }
-          }
-
-          final savedDecision = prefs.getString('decision_${item.id}');
-          if (savedDecision != null) {
-            item.decision = SwipeAction.values.firstWhere(
-              (e) => e.name == savedDecision,
-              orElse: () => SwipeAction.keep,
-            );
-            if (item.decision == SwipeAction.trash) {
-              if (!_stagingBin.any((existing) => existing.id == item.id)) {
-                _stagingBin.add(item);
-              }
-            }
-          }
-
-          final key =
-              '${item.dateTime.year}-${item.dateTime.month.toString().padLeft(2, '0')}';
-
-          var groupIndex = monthGroups.indexWhere((g) => g.yearMonthKey == key);
-          if (groupIndex == -1) {
-            final parts = key.split('-');
-            monthGroups.add(MonthGroup(
-                label: _monthLabel(int.parse(parts[1]), int.parse(parts[0])),
-                yearMonthKey: key,
-                items: [item]));
-          } else {
-            monthGroups[groupIndex].items.add(item);
-          }
-
-          if (item.fileSize > 10 * 1024 * 1024) {
-            _categorizeLargeFile(item);
-          }
-
-          if (item.isWhatsApp) {
-            if (whatsappGroup == null) {
-              whatsappGroup = MonthGroup(
-                label: 'WhatsApp Junk',
-                yearMonthKey: 'whatsapp',
-                items: [item],
-              );
-            } else if (!whatsappGroup!.items.any((i) => i.id == item.id)) {
-              whatsappGroup!.items.add(item);
-            }
-          }
-        }
-
-        monthGroups.sort((a, b) => b.yearMonthKey.compareTo(a.yearMonthKey));
-        for (final g in monthGroups) g.recalculateCurrentIndex();
+      if (i > 0 && i % 100 == 0) {
         totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
-        _findSimilarPhotos();
         notifyListeners();
       }
-
-      _findSimilarPhotos();
-    } finally {
-      isBackgroundLoading = false;
-      backgroundLoadProgress = 1.0;
-      notifyListeners();
     }
+    totalTrashedBytes = _stagingBin.fold(0, (s, item) => s + item.fileSize);
+    notifyListeners();
   }
 
   void bulkAddToStagingBin(List<GalleryMediaItem> items) {
@@ -567,6 +430,11 @@ class GalleryProvider extends ChangeNotifier {
     screenshotsGroup?.recalculateCurrentIndex();
     whatsappGroup?.recalculateCurrentIndex();
     randomGroup?.recalculateCurrentIndex();
+    blurryGroup?.recalculateCurrentIndex();
+    largeFiles10To100?.recalculateCurrentIndex();
+    largeFiles100To500?.recalculateCurrentIndex();
+    largeFiles500To1GB?.recalculateCurrentIndex();
+    largeFilesOver1GB?.recalculateCurrentIndex();
 
     notifyListeners();
   }
@@ -656,14 +524,43 @@ class GalleryProvider extends ChangeNotifier {
       await prefs.remove('blurry_$id');
     }
 
+    // Remove from allItems list
+    allItems.removeWhere((i) => deletedIds.contains(i.id));
+
     // Remove from all month groups
     for (final group in monthGroups) {
       group.items.removeWhere((i) => deletedIds.contains(i.id));
+      group.recalculateCurrentIndex();
     }
     screenshotsGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    screenshotsGroup?.recalculateCurrentIndex();
+
     whatsappGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    whatsappGroup?.recalculateCurrentIndex();
+
+    blurryGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    blurryGroup?.recalculateCurrentIndex();
+
+    largeFiles10To100?.items.removeWhere((i) => deletedIds.contains(i.id));
+    largeFiles10To100?.recalculateCurrentIndex();
+
+    largeFiles100To500?.items.removeWhere((i) => deletedIds.contains(i.id));
+    largeFiles100To500?.recalculateCurrentIndex();
+
+    largeFiles500To1GB?.items.removeWhere((i) => deletedIds.contains(i.id));
+    largeFiles500To1GB?.recalculateCurrentIndex();
+
+    largeFilesOver1GB?.items.removeWhere((i) => deletedIds.contains(i.id));
+    largeFilesOver1GB?.recalculateCurrentIndex();
 
     randomGroup?.items.removeWhere((i) => deletedIds.contains(i.id));
+    randomGroup?.recalculateCurrentIndex();
+
+    // Clean up similar photo groups
+    for (final g in similarPhotoGroups) {
+      g.removeWhere((i) => deletedIds.contains(i.id));
+    }
+    similarPhotoGroups.removeWhere((g) => g.length < 2);
 
     // Refetch disk space so the home screen storage widget updates!
     await fetchDiskSpace();
@@ -711,7 +608,7 @@ class GalleryProvider extends ChangeNotifier {
   }
 
   void _findSimilarPhotos() {
-    final sortedItems = allItems.where((i) => !i.isVideo).toList()
+    final sortedItems = allItems.where((i) => !i.isVideo && i.dateTaken > 0).toList()
       ..sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
 
     List<List<GalleryMediaItem>> newGroups = [];
@@ -721,12 +618,15 @@ class GalleryProvider extends ChangeNotifier {
       final current = sortedItems[i];
       final next = sortedItems[i + 1];
 
-      // If taken within 3 seconds of each other
-      final timeDiff = (current.dateTaken - next.dateTaken).abs();
+      // Time difference between consecutive photos <= 3 seconds
+      final diffFromPrevious = (current.dateTaken - next.dateTaken).abs();
+      // Total cluster span should not exceed 15 seconds from the first photo in this cluster
+      final clusterStart =
+          currentGroup.isNotEmpty ? currentGroup.first.dateTaken : current.dateTaken;
+      final diffFromStart = (clusterStart - next.dateTaken).abs();
 
-      if (timeDiff <= 3000) {
+      if (diffFromPrevious <= 3000 && diffFromStart <= 15000) {
         if (currentGroup.isEmpty) currentGroup.add(current);
-        // Only add if not already in the group (prevent duplicates just in case)
         if (!currentGroup.any((item) => item.id == next.id)) {
           currentGroup.add(next);
         }

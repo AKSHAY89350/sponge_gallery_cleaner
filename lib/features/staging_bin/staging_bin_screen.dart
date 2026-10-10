@@ -17,37 +17,75 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
   bool _isDeleting = false;
 
   Future<void> _confirmAndDelete(BuildContext context, GalleryProvider provider) async {
+    final count = provider.stagingBin.length;
+    if (count == 0) return;
+
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    
-    if (mounted) {
-      setState(() => _isDeleting = true);
-      try {
-        final deletedCount = await provider.permanentlyDeleteStaged();
-        if (mounted) {
-          setState(() => _isDeleting = false);
-          if (deletedCount > 0) {
-            navigator.pop();
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text('✨ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
-                backgroundColor: const Color(0xFF10B981),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isDeleting = false);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1E26),
+        title: const Text('Permanently Delete?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(
+          'Are you sure you want to permanently delete $count item${count > 1 ? "s" : ""} from your device? This action cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final deletedCount = await provider.permanentlyDeleteStaged();
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        if (deletedCount > 0) {
+          navigator.pop();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                  '✨ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
           messenger.showSnackBar(
             const SnackBar(
-              content: Text('Failed to delete some items. They might be locked.'),
-              backgroundColor: Colors.red,
+              content: Text('Deletion cancelled by system.'),
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete some items. They might be locked.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }

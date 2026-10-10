@@ -104,22 +104,29 @@ class _HomeTab extends StatelessWidget {
     }
 
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        children: [
-          _buildTopHeader(),
-          const SizedBox(height: 32),
-          _buildCircles(provider),
-          const SizedBox(height: 36),
-          _buildSmartClean(context, provider),
-          const SizedBox(height: 36),
-          _buildMonthList(context, provider),
-        ],
+      child: RefreshIndicator(
+        color: const Color(0xFF7C3AED),
+        backgroundColor: const Color(0xFF16181F),
+        onRefresh: () => provider.loadGallery(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+          children: [
+            _buildTopHeader(context, provider),
+            const SizedBox(height: 32),
+            _buildCircles(provider),
+            const SizedBox(height: 36),
+            _buildSmartClean(context, provider),
+            const SizedBox(height: 36),
+            _buildMonthList(context, provider),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTopHeader() {
+  Widget _buildTopHeader(BuildContext context, GalleryProvider provider) {
+    final trashCount = provider.stagingBin.length;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -146,14 +153,53 @@ class _HomeTab extends StatelessWidget {
             ),
           ],
         ),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1C1E26),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
-        )
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (trashCount > 0)
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StagingBinScreen()),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.delete_rounded,
+                          color: Colors.red, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$trashCount',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1C1E26),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.settings_rounded,
+                  color: Colors.white, size: 24),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -165,9 +211,10 @@ class _HomeTab extends StatelessWidget {
     final storagePercent = totalMB > 0 ? (usedMB / totalMB) : 0.0;
     final freeGB = (freeMB / 1024).toStringAsFixed(1);
 
-    final totalMonths = provider.monthGroups.length;
-    final reviewedMonths = provider.monthGroups.where((g) => 
-      g.items.where((i) => i.decision == null).isEmpty
+    final activeMonthGroups = provider.monthGroups.where((g) => g.items.isNotEmpty).toList();
+    final totalMonths = activeMonthGroups.length;
+    final reviewedMonths = activeMonthGroups.where((g) => 
+      g.items.every((i) => i.decision != null)
     ).length;
     final reviewPercent = totalMonths > 0 ? (reviewedMonths / totalMonths) : 0.0;
 
@@ -216,7 +263,7 @@ class _HomeTab extends StatelessWidget {
             Expanded(child: _buildSmartCard(
               context: context,
               title: 'Similar\nPhotos',
-              count: provider.similarPhotoGroups.expand((e) => e).where((i) => i.decision == null).length,
+              count: provider.similarPhotosCount,
               icon: Icons.photo_library_rounded,
               color: const Color(0xFFC026D3),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SimilarPhotosScreen())),
@@ -238,7 +285,7 @@ class _HomeTab extends StatelessWidget {
             Expanded(child: _buildSmartCard(
               context: context,
               title: 'WhatsApp\nJunk',
-              count: provider.whatsappGroup?.items.where((i) => i.decision == null).length ?? 0,
+              count: provider.whatsappJunkCount,
               icon: Icons.chat_bubble_rounded,
               color: const Color(0xFF10B981),
               onTap: () => _openSwipeScreen(context, provider.whatsappGroup),
@@ -265,7 +312,7 @@ class _HomeTab extends StatelessWidget {
             Expanded(child: _buildSmartCard(
               context: context,
               title: 'Screenshots',
-              count: provider.screenshotsGroup?.items.where((i) => i.decision == null).length ?? 0,
+              count: provider.screenshotsCount,
               icon: Icons.screenshot_rounded,
               color: const Color(0xFFF59E0B), // Using orange-ish for screenshots
               onTap: () => _openSwipeScreen(context, provider.screenshotsGroup),
