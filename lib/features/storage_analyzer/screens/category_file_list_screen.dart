@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/features/storage_analyzer/models/storage_file_item.dart';
 import 'package:sponge_gallery_cleaner/features/storage_analyzer/services/storage_scanner_service.dart';
 
@@ -96,14 +97,10 @@ class _CategoryFileListScreenState extends State<CategoryFileListScreen> {
 
     if (mounted) {
       setState(() => _isDeleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF16181F),
-          content: Text(
-            'Successfully deleted $deletedCount files.',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
+      ModernNotificationBanner.show(
+        context,
+        message: 'Successfully deleted $deletedCount files',
+        type: ModernBannerType.trash,
       );
     }
   }
@@ -148,14 +145,10 @@ class _CategoryFileListScreenState extends State<CategoryFileListScreen> {
       });
       widget.onDataChanged();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF16181F),
-            content: Text(
-              'Deleted ${item.name}',
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
+        ModernNotificationBanner.show(
+          context,
+          message: 'Deleted ${item.name}',
+          type: ModernBannerType.trash,
         );
       }
     }

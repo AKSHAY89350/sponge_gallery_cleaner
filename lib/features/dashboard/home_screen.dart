@@ -9,6 +9,7 @@ import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.d
 import 'package:sponge_gallery_cleaner/features/media_cleaners/large_files_menu_screen.dart';
 import 'package:sponge_gallery_cleaner/features/storage_analyzer/screens/storage_breakdown_screen.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/screens/people_overview_screen.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -590,11 +591,11 @@ class _HomeTabState extends State<_HomeTab> {
                 onTap: () {
                   final group = SceneClassifierService.createSceneryGroup();
                   if (group.items.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'No scenery photos detected yet. Tap "Scan" above to analyze photos.'),
-                      ),
+                    ModernNotificationBanner.show(
+                      context,
+                      message: 'No scenery photos detected yet',
+                      subtitle: 'Tap "Scan" above to analyze photos',
+                      type: ModernBannerType.info,
                     );
                     return;
                   }
@@ -613,11 +614,11 @@ class _HomeTabState extends State<_HomeTab> {
                 onTap: () {
                   final group = SceneClassifierService.createFoodGroup();
                   if (group.items.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'No food photos detected yet. Tap "Scan" above to analyze photos.'),
-                      ),
+                    ModernNotificationBanner.show(
+                      context,
+                      message: 'No food photos detected yet',
+                      subtitle: 'Tap "Scan" above to analyze photos',
+                      type: ModernBannerType.info,
                     );
                     return;
                   }
@@ -640,11 +641,11 @@ class _HomeTabState extends State<_HomeTab> {
                 onTap: () {
                   final group = SceneClassifierService.createDocumentGroup();
                   if (group.items.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'No documents detected yet. Tap "Scan" above to analyze photos.'),
-                      ),
+                    ModernNotificationBanner.show(
+                      context,
+                      message: 'No documents detected yet',
+                      subtitle: 'Tap "Scan" above to analyze photos',
+                      type: ModernBannerType.info,
                     );
                     return;
                   }

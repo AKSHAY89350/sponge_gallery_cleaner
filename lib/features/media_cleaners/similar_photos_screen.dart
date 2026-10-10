@@ -5,6 +5,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
 import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
 
 class SimilarPhotosScreen extends StatefulWidget {
@@ -49,13 +50,11 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
       _selectedToKeepIds.clear();
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Kept ${itemsToKeep.length} photos, Trashed ${itemsToTrash.length}.'),
-        backgroundColor: const Color(0xFF7C3AED),
-        behavior: SnackBarBehavior.floating,
-      ),
+    ModernNotificationBanner.show(
+      context,
+      message: 'Cleaned ${itemsToTrash.length} duplicate photos',
+      subtitle: 'Kept ${itemsToKeep.length} best shots in gallery',
+      type: ModernBannerType.trash,
     );
   }
 

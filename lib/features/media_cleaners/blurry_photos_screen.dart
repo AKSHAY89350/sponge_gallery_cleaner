@@ -5,6 +5,7 @@ import 'package:photo_manager/photo_manager.dart';
 
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
 
 class BlurryPhotosScreen extends StatefulWidget {
@@ -38,6 +39,13 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
         [];
     provider.bulkAddToStagingBin(itemsToTrash);
 
+    ModernNotificationBanner.show(
+      context,
+      message: 'Moved ${itemsToTrash.length} blurry photos to trash',
+      subtitle: 'Review them in Staging Bin anytime',
+      type: ModernBannerType.trash,
+    );
+
     setState(() {
       _selectedIds.clear();
       provider.blurryGroup?.recalculateCurrentIndex();
@@ -53,6 +61,12 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
             .toList() ??
         [];
     provider.bulkKeepItems(itemsToKeep);
+
+    ModernNotificationBanner.show(
+      context,
+      message: 'Kept ${itemsToKeep.length} photos in gallery',
+      type: ModernBannerType.success,
+    );
 
     setState(() {
       _selectedIds.clear();

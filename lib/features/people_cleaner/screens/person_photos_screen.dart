@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
@@ -74,11 +75,10 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
   void _openSwipeClean() {
     final liveItems = widget.person.items.where((i) => i.decision == null).toList();
     if (liveItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('All photos for this person have already been reviewed!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
+      ModernNotificationBanner.show(
+        context,
+        message: 'All photos for this person have already been reviewed',
+        type: ModernBannerType.info,
       );
       return;
     }
@@ -109,11 +109,10 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
         .toList();
 
     if (otherPeople.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No other people found to merge with.'),
-          backgroundColor: Color(0xFF16181F),
-        ),
+      ModernNotificationBanner.show(
+        context,
+        message: 'No other people found to merge with',
+        type: ModernBannerType.info,
       );
       return;
     }
@@ -219,11 +218,11 @@ class _PersonPhotosScreenState extends State<PersonPhotosScreen> {
                             widget.onUpdated();
                             if (mounted) {
                               Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Merged photos into "${target.name}"'),
-                                  backgroundColor: const Color(0xFF10B981),
-                                ),
+                              ModernNotificationBanner.show(
+                                context,
+                                message: 'Merged photos into "${target.name}"',
+                                subtitle: 'Faces combined into single person',
+                                type: ModernBannerType.success,
                               );
                             }
                           }

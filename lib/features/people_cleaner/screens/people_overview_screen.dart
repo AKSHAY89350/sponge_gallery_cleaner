@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/models/person_cluster.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/services/face_detection_service.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/screens/person_photos_screen.dart';
 
@@ -88,11 +89,11 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
       await FaceDetectionService.resetClusters(allItems);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Face clusters cleared. Tap "Start Face Scan" to re-scan.'),
-          backgroundColor: Color(0xFF16181F),
-        ),
+      ModernNotificationBanner.show(
+        context,
+        message: 'Face clusters cleared',
+        subtitle: 'Tap "Start Face Scan" to re-scan',
+        type: ModernBannerType.info,
       );
     }
   }

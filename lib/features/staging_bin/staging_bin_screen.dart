@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:provider/provider.dart';
+import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 
@@ -54,38 +55,34 @@ class _StagingBinScreenState extends State<StagingBinScreen> {
     setState(() => _isDeleting = true);
     try {
       final deletedCount = await provider.permanentlyDeleteStaged();
-      if (mounted) {
-        setState(() => _isDeleting = false);
-        if (deletedCount > 0) {
-          navigator.pop();
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                  '✨ $deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently!'),
-              backgroundColor: const Color(0xFF10B981),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        } else {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Deletion cancelled by system.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isDeleting = false);
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete some items. They might be locked.'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      if (deletedCount > 0) {
+        navigator.pop();
+        ModernNotificationBanner.show(
+          null,
+          messenger: messenger,
+          message: '$deletedCount item${deletedCount > 1 ? "s" : ""} deleted permanently',
+          subtitle: 'Storage space reclaimed from device',
+          type: ModernBannerType.success,
+        );
+      } else {
+        ModernNotificationBanner.show(
+          null,
+          messenger: messenger,
+          message: 'Deletion cancelled by system',
+          type: ModernBannerType.warning,
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ModernNotificationBanner.show(
+        null,
+        messenger: messenger,
+        message: 'Failed to delete some items. They might be locked.',
+        type: ModernBannerType.error,
+      );
     }
   }
 
@@ -340,12 +337,11 @@ class _TrashBinThumbnailState extends State<_TrashBinThumbnail> {
               onTap: () {
                 HapticFeedback.lightImpact();
                 context.read<GalleryProvider>().removeFromStagingBin(widget.item);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Photo restored ✅'),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                ModernNotificationBanner.show(
+                  context,
+                  message: 'Photo restored to gallery',
+                  type: ModernBannerType.restore,
+                  duration: const Duration(seconds: 1),
                 );
               },
               child: Container(
