@@ -18,6 +18,7 @@ class FaceDetectionService {
   );
 
   static final List<PersonCluster> clusters = [];
+  static final List<GalleryMediaItem> groupPhotos = [];
   static bool isScanning = false;
   static int scannedCount = 0;
   static int totalToScan = 0;
@@ -72,37 +73,49 @@ class FaceDetectionService {
               final inputImage = InputImage.fromFilePath(tempScanFile.path);
 
               final faces = await _detector.processImage(inputImage);
-              if (faces.isNotEmpty) {
-                // Find primary / largest face in the photo
-                faces.sort((a, b) =>
+              final validFaces = faces
+                  .where((f) => f.boundingBox.width >= 40 && f.boundingBox.height >= 40)
+                  .toList()
+                ..sort((a, b) =>
                     (b.boundingBox.width * b.boundingBox.height)
                         .compareTo(a.boundingBox.width * a.boundingBox.height));
-                final primaryFace = faces.first;
 
-                // Extract features
-                final features = _extractFeatureVector(primaryFace, 512, 512);
+              if (validFaces.length >= 2) {
+                if (!groupPhotos.any((i) => i.id == item.id)) {
+                  groupPhotos.add(item);
+                }
+              }
 
-                // Crop avatar
-                Uint8List? avatarBytes;
+              if (validFaces.isNotEmpty) {
+                img.Image? decoded;
                 try {
-                  final decoded = img.decodeImage(thumbBytes);
-                  if (decoded != null) {
-                    final box = primaryFace.boundingBox;
-                    final padX = (box.width * 0.2).toInt();
-                    final padY = (box.height * 0.2).toInt();
-
-                    final x = (box.left.toInt() - padX).clamp(0, decoded.width - 1);
-                    final y = (box.top.toInt() - padY).clamp(0, decoded.height - 1);
-                    final w = (box.width.toInt() + padX * 2).clamp(1, decoded.width - x);
-                    final h = (box.height.toInt() + padY * 2).clamp(1, decoded.height - y);
-
-                    final cropped = img.copyCrop(decoded, x: x, y: y, width: w, height: h);
-                    final square = img.copyResize(cropped, width: 140, height: 140);
-                    avatarBytes = Uint8List.fromList(img.encodeJpg(square, quality: 80));
-                  }
+                  decoded = img.decodeImage(thumbBytes);
                 } catch (_) {}
 
-                _matchAndCluster(item, features, avatarBytes);
+                // Process up to 5 clear faces per photo
+                for (final face in validFaces.take(5)) {
+                  final features = _extractFeatureVector(face, 512, 512);
+
+                  Uint8List? avatarBytes;
+                  if (decoded != null) {
+                    try {
+                      final box = face.boundingBox;
+                      final padX = (box.width * 0.2).toInt();
+                      final padY = (box.height * 0.2).toInt();
+
+                      final x = (box.left.toInt() - padX).clamp(0, decoded.width - 1);
+                      final y = (box.top.toInt() - padY).clamp(0, decoded.height - 1);
+                      final w = (box.width.toInt() + padX * 2).clamp(1, decoded.width - x);
+                      final h = (box.height.toInt() + padY * 2).clamp(1, decoded.height - y);
+
+                      final cropped = img.copyCrop(decoded, x: x, y: y, width: w, height: h);
+                      final square = img.copyResize(cropped, width: 140, height: 140);
+                      avatarBytes = Uint8List.fromList(img.encodeJpg(square, quality: 80));
+                    } catch (_) {}
+                  }
+
+                  _matchAndCluster(item, features, avatarBytes);
+                }
               }
             }
           }

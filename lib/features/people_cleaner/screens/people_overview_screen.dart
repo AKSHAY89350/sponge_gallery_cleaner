@@ -32,6 +32,7 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     final clusters = FaceDetectionService.clusters;
+    final groupPhotos = FaceDetectionService.groupPhotos;
     final isScanning = FaceDetectionService.isScanning;
     final scannedCount = FaceDetectionService.scannedCount;
     final totalToScan = FaceDetectionService.totalToScan;
@@ -147,6 +148,88 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
               ],
             ),
           ),
+
+          // Group Photos Card (if any group photos detected)
+          if (groupPhotos.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                final groupCluster = PersonCluster(
+                  id: 'group_photos',
+                  name: 'Group Photos',
+                  items: groupPhotos,
+                  featureVector: [],
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PersonPhotosScreen(
+                      person: groupCluster,
+                      onUpdated: () => setState(() {}),
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16181F),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.groups_rounded, color: Color(0xFF10B981), size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Group Photos',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${groupPhotos.length} photos with 2 or more people',
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swipe_rounded, color: Color(0xFF10B981), size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            'Swipe Clean',
+                            style: TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // People Grid
           Expanded(
