@@ -47,6 +47,10 @@
             </intent-filter>
         </activity>
 
+        <!-- On-device Google ML Kit Face model dependency declaration -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="face" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

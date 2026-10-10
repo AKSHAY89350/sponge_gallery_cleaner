@@ -8,6 +8,7 @@ import 'package:sponge_gallery_cleaner/features/media_cleaners/blurry_photos_scr
 import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.dart';
 import 'package:sponge_gallery_cleaner/features/media_cleaners/large_files_menu_screen.dart';
 import 'package:sponge_gallery_cleaner/features/storage_analyzer/screens/storage_breakdown_screen.dart';
+import 'package:sponge_gallery_cleaner/features/people_cleaner/screens/people_overview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -696,46 +697,7 @@ class _PeopleTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F1115),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'People & Collections',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.face_rounded, color: Color(0xFF7C3AED), size: 64),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Face Recognition & People',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                'Automatically detect faces, cluster people into collections, and swipe-clean duplicates.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const PeopleOverviewScreen();
   }
 }
 
