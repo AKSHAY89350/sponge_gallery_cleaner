@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 import 'package:sponge_gallery_cleaner/features/gallery_core/providers/gallery_provider.dart';
+import 'package:sponge_gallery_cleaner/features/media_cleaners/swipe_screen.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/universal_preview_dialog.dart';
 
 class SimilarPhotosScreen extends StatefulWidget {
@@ -106,6 +107,27 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
           ],
         ),
         centerTitle: true,
+        actions: [
+          if (liveGroups.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.style_rounded, color: Color(0xFF7C3AED)),
+              tooltip: 'Swipe all similar photos',
+              onPressed: () {
+                final allItems = liveGroups.expand((g) => g).toList();
+                final swipeGroup = MonthGroup(
+                  label: 'All Similar Photos',
+                  yearMonthKey: 'similar_all',
+                  items: allItems,
+                )..recalculateCurrentIndex();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SwipeScreen(group: swipeGroup),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -249,15 +271,44 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${group.length} photos  >',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                GestureDetector(
+                  onTap: () {
+                    final swipeGroup = MonthGroup(
+                      label: 'Similar Photos (${group.length})',
+                      yearMonthKey: 'similar_${group.first.id}',
+                      items: group,
+                    )..recalculateCurrentIndex();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SwipeScreen(group: swipeGroup),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.swipe_rounded, color: Color(0xFF7C3AED), size: 15),
+                        SizedBox(width: 5),
+                        Text(
+                          'Swipe to Clean',
+                          style: TextStyle(
+                            color: Color(0xFF7C3AED),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
