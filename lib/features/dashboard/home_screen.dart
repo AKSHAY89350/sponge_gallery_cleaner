@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: const [
           _HomeTab(),
+          _PeopleTab(),
           _ReviewTab(),
           _SettingsTab(),
         ],
@@ -62,6 +63,11 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.home_filled),
               label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline_rounded),
+              activeIcon: Icon(Icons.people_rounded),
+              label: 'People',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.photo_library_outlined),
@@ -682,6 +688,54 @@ class _ReviewTab extends StatelessWidget {
     // but just placing the widget is easier. Actually SwipeScreen uses Scaffold,
     // so it's perfectly fine to place it here.
     return SwipeScreen(key: ValueKey(targetGroup.yearMonthKey), group: targetGroup, isEmbedded: true);
+  }
+}
+
+class _PeopleTab extends StatelessWidget {
+  const _PeopleTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F1115),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'People & Collections',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.face_rounded, color: Color(0xFF7C3AED), size: 64),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Face Recognition & People',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Automatically detect faces, cluster people into collections, and swipe-clean duplicates.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
