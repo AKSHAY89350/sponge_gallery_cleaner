@@ -6,6 +6,9 @@ import 'package:sponge_gallery_cleaner/features/dashboard/permission_screen.dart
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Bound image cache to prevent runaway RAM growth
+  PaintingBinding.instance.imageCache.maximumSize = 250;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024; // 60 MB
   runApp(const SpongeApp());
 }
 
@@ -40,24 +43,41 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<AppRoot> {
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   bool _permissionsChecked = false;
   bool _permissionsGranted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      // App minimized: trim memory cache to prevent Android Low Memory Killer from terminating process
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    }
   }
 
   Future<void> _checkPermissions() async {
     final provider = context.read<GalleryProvider>();
     final granted = await provider.checkPermissions();
+    if (!mounted) return;
     setState(() {
       _permissionsChecked = true;
       _permissionsGranted = granted;
     });
-    if (granted) {
+    if (granted && provider.allItems.isEmpty && !provider.isLoading) {
       provider.loadGallery();
     }
   }
