@@ -203,9 +203,9 @@ class FaceDetectionService {
         } catch (_) {}
 
         scannedCount++;
-        if (i % 5 == 0 || i == processList.length - 1) {
+        if (i % 4 == 0 || i == processList.length - 1) {
           onProgress();
-          await Future.delayed(const Duration(milliseconds: 10)); // UI smoothness
+          await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
         }
       }
     } finally {

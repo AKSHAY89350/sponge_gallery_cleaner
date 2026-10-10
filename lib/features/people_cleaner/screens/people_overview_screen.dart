@@ -13,17 +13,28 @@ class PeopleOverviewScreen extends StatefulWidget {
 }
 
 class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
+  bool _isInitializingFaces = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<GalleryProvider>();
-      if (provider.allItems.isNotEmpty && !FaceDetectionService.isInitialized) {
-        FaceDetectionService.initialize(provider.allItems).then((_) {
-          if (mounted) setState(() {});
-        });
-      }
+      _initFaceDetection();
     });
+  }
+
+  void _initFaceDetection() {
+    if (_isInitializingFaces) return;
+    final provider = context.read<GalleryProvider>();
+    if (provider.allItems.isNotEmpty && !FaceDetectionService.isInitialized) {
+      _isInitializingFaces = true;
+      FaceDetectionService.initialize(provider.allItems).then((_) {
+        _isInitializingFaces = false;
+        if (mounted) setState(() {});
+      }).catchError((_) {
+        _isInitializingFaces = false;
+      });
+    }
   }
 
   void _triggerScan() {
@@ -48,12 +59,19 @@ class _PeopleOverviewScreenState extends State<PeopleOverviewScreen> {
 
     if (provider.allItems.isNotEmpty &&
         !FaceDetectionService.isInitialized &&
+        !_isInitializingFaces &&
         !FaceDetectionService.isScanning) {
+      _isInitializingFaces = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!FaceDetectionService.isInitialized && mounted) {
           FaceDetectionService.initialize(provider.allItems).then((_) {
+            _isInitializingFaces = false;
             if (mounted) setState(() {});
+          }).catchError((_) {
+            _isInitializingFaces = false;
           });
+        } else {
+          _isInitializingFaces = false;
         }
       });
     }

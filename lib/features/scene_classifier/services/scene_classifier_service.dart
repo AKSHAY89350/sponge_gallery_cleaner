@@ -229,8 +229,9 @@ class SceneClassifierService {
         }
 
         scannedCount++;
-        if (i % 5 == 0 || i == processList.length - 1) {
+        if (i % 4 == 0 || i == processList.length - 1) {
           onProgress();
+          await Future.delayed(const Duration(milliseconds: 15)); // CPU cooling & GC yield
         }
       }
     } catch (e) {

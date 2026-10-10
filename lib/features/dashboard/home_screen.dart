@@ -96,6 +96,8 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
+  bool _isInitializingScene = false;
+
   @override
   void initState() {
     super.initState();
@@ -105,10 +107,15 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   void _initSceneClassifier() {
+    if (_isInitializingScene) return;
     final provider = context.read<GalleryProvider>();
     if (provider.allItems.isNotEmpty && !SceneClassifierService.isInitialized) {
+      _isInitializingScene = true;
       SceneClassifierService.initialize(provider.allItems).then((_) {
+        _isInitializingScene = false;
         if (mounted) setState(() {});
+      }).catchError((_) {
+        _isInitializingScene = false;
       });
     }
   }
@@ -135,12 +142,19 @@ class _HomeTabState extends State<_HomeTab> {
 
     if (provider.allItems.isNotEmpty &&
         !SceneClassifierService.isInitialized &&
+        !_isInitializingScene &&
         !SceneClassifierService.isScanning) {
+      _isInitializingScene = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!SceneClassifierService.isInitialized && mounted) {
           SceneClassifierService.initialize(provider.allItems).then((_) {
+            _isInitializingScene = false;
             if (mounted) setState(() {});
+          }).catchError((_) {
+            _isInitializingScene = false;
           });
+        } else {
+          _isInitializingScene = false;
         }
       });
     }
