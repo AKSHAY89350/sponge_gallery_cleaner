@@ -96,7 +96,7 @@ class _BlurryPhotosScreenState extends State<BlurryPhotosScreen> {
                 const SizedBox(width: 4),
                 Switch(
                   value: isAllSelected,
-                  activeColor: const Color(0xFF10B981),
+                  activeThumbColor: const Color(0xFF10B981),
                   onChanged: (val) {
                     setState(() {
                       if (val) {

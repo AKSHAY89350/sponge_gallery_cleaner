@@ -9,6 +9,7 @@ import 'package:sponge_gallery_cleaner/features/staging_bin/staging_bin_screen.d
 import 'package:sponge_gallery_cleaner/features/media_cleaners/large_files_menu_screen.dart';
 import 'package:sponge_gallery_cleaner/features/storage_analyzer/screens/storage_breakdown_screen.dart';
 import 'package:sponge_gallery_cleaner/features/people_cleaner/screens/people_overview_screen.dart';
+import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -87,12 +88,62 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initSceneClassifier();
+    });
+  }
+
+  void _initSceneClassifier() {
+    final provider = context.read<GalleryProvider>();
+    if (provider.allItems.isNotEmpty && !SceneClassifierService.isInitialized) {
+      SceneClassifierService.initialize(provider.allItems).then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  void _triggerSceneScan() {
+    final provider = context.read<GalleryProvider>();
+    if (SceneClassifierService.isScanning) {
+      SceneClassifierService.stopScanning();
+      setState(() {});
+    } else {
+      SceneClassifierService.scanGalleryForScenes(
+        allItems: provider.allItems,
+        onProgress: () {
+          if (mounted) setState(() {});
+        },
+      );
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GalleryProvider>();
+
+    if (provider.allItems.isNotEmpty &&
+        !SceneClassifierService.isInitialized &&
+        !SceneClassifierService.isScanning) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!SceneClassifierService.isInitialized && mounted) {
+          SceneClassifierService.initialize(provider.allItems).then((_) {
+            if (mounted) setState(() {});
+          });
+        }
+      });
+    }
 
     if (provider.isLoading && provider.allItems.isEmpty) {
       return Center(
@@ -300,7 +351,18 @@ class _HomeTab extends StatelessWidget {
   }
 
   Widget _buildSmartClean(BuildContext context, GalleryProvider provider) {
+    final foodCount = SceneClassifierService.foodPhotos
+        .where((i) => i.decision == null)
+        .length;
+    final sceneryCount = SceneClassifierService.sceneryPhotos
+        .where((i) => i.decision == null)
+        .length;
+    final docCount = SceneClassifierService.documentPhotos
+        .where((i) => i.decision == null)
+        .length;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -386,6 +448,189 @@ class _HomeTab extends StatelessWidget {
             )),
           ],
         ),
+        const SizedBox(height: 24),
+
+        // AI Scene & Category Cleaner Section
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.auto_awesome_rounded, color: Color(0xFF10B981), size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'AI Scene Cleaner',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            TextButton.icon(
+              onPressed: _triggerSceneScan,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                backgroundColor: const Color(0xFF16181F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: SceneClassifierService.isScanning
+                        ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+                        : const Color(0xFF10B981).withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+              icon: Icon(
+                SceneClassifierService.isScanning
+                    ? Icons.pause_circle_rounded
+                    : Icons.play_circle_fill_rounded,
+                color: SceneClassifierService.isScanning
+                    ? const Color(0xFF7C3AED)
+                    : const Color(0xFF10B981),
+                size: 18,
+              ),
+              label: Text(
+                SceneClassifierService.isScanning ? 'Pause' : 'Scan',
+                style: TextStyle(
+                  color: SceneClassifierService.isScanning
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF10B981),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        if (SceneClassifierService.isScanning) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16181F),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Analyzing photos: ${SceneClassifierService.scannedCount} / ${SceneClassifierService.totalToScan}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${(SceneClassifierService.scanProgress * 100).toInt()}%',
+                      style: const TextStyle(
+                        color: Color(0xFF10B981),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: SceneClassifierService.scanProgress,
+                    backgroundColor: Colors.white10,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF10B981)),
+                    minHeight: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSmartCard(
+                context: context,
+                title: 'Views &\nScenery',
+                count: sceneryCount,
+                icon: Icons.landscape_rounded,
+                color: const Color(0xFF06B6D4), // Cyan
+                onTap: () {
+                  final group = SceneClassifierService.createSceneryGroup();
+                  if (group.items.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'No scenery photos detected yet. Tap "Scan" above to analyze photos.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _openSwipeScreen(context, group);
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSmartCard(
+                context: context,
+                title: 'Food &\nDining',
+                count: foodCount,
+                icon: Icons.restaurant_rounded,
+                color: const Color(0xFFF97316), // Orange
+                onTap: () {
+                  final group = SceneClassifierService.createFoodGroup();
+                  if (group.items.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'No food photos detected yet. Tap "Scan" above to analyze photos.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _openSwipeScreen(context, group);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSmartCard(
+                context: context,
+                title: 'Documents\n& Receipts',
+                count: docCount,
+                icon: Icons.description_rounded,
+                color: const Color(0xFF8B5CF6), // Purple
+                onTap: () {
+                  final group = SceneClassifierService.createDocumentGroup();
+                  if (group.items.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'No documents detected yet. Tap "Scan" above to analyze photos.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _openSwipeScreen(context, group);
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
       ],
     );
   }
@@ -411,14 +656,14 @@ class _HomeTab extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF16181F),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.15), width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 0.15), width: 1.5),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 22),

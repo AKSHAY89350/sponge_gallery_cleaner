@@ -636,7 +636,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withOpacity(0.15),
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -689,7 +689,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                     HapticFeedback.heavyImpact();
                     showDialog(
                       context: context,
-                      barrierColor: Colors.black.withOpacity(0.9),
+                      barrierColor: Colors.black.withValues(alpha: 0.9),
                       builder: (_) => UniversalPreviewDialog(
                           items: remainingItems,
                           initialIndex: remainingItems.indexOf(item)),
@@ -704,7 +704,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                       ),
                     ),
                     child: Stack(
-                      fit: StackFit.expand,
+                       fit: StackFit.expand,
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(9),
@@ -717,7 +717,7 @@ class _SwipeScreenState extends State<SwipeScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.7),
+                                color: Colors.black.withValues(alpha: 0.7),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),

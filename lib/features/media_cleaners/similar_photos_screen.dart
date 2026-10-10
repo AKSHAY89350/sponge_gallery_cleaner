@@ -171,7 +171,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withOpacity(0.15),
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.photo_library_rounded, color: Color(0xFF7C3AED), size: 20),
@@ -235,7 +235,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF16181F),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +250,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withOpacity(0.15),
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.burst_mode_rounded, color: Color(0xFF7C3AED), size: 20),
@@ -328,7 +328,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
                     HapticFeedback.heavyImpact();
                     showDialog(
                       context: context,
-                      barrierColor: Colors.black.withOpacity(0.9),
+                      barrierColor: Colors.black.withValues(alpha: 0.9),
                       builder: (_) => UniversalPreviewDialog(items: group, initialIndex: i),
                     );
                   },
