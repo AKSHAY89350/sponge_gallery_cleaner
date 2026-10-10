@@ -66,9 +66,23 @@ class _AppRootState extends State<AppRoot> {
   Widget build(BuildContext context) {
     if (!_permissionsChecked) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0D0D0D),
+        backgroundColor: Color(0xFF0F1115),
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF7C3AED)),
+              SizedBox(height: 20),
+              Text(
+                'Scanning your gallery for cleaning process...',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }

@@ -88,7 +88,48 @@ class _HomeTab extends StatelessWidget {
     final provider = context.watch<GalleryProvider>();
 
     if (provider.isLoading && provider.allItems.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED)));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(
+                  color: Color(0xFF7C3AED),
+                  strokeWidth: 3.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Scanning your gallery for cleaning process...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Analyzing photos, videos & duplicates',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     if (provider.allItems.isEmpty && !provider.isLoading) {
