@@ -157,6 +157,7 @@ class FaceDetectionService {
           enableLandmarks: true,
           enableClassification: true,
           performanceMode: FaceDetectorMode.accurate,
+          minFaceSize: 0.12,
         ),
       );
       detectorTail = FaceDetector(
@@ -164,6 +165,7 @@ class FaceDetectionService {
           enableLandmarks: true,
           enableClassification: true,
           performanceMode: FaceDetectorMode.accurate,
+          minFaceSize: 0.12,
         ),
       );
 
@@ -242,7 +244,7 @@ class FaceDetectionService {
 
                 final faces = await detector.processImage(inputImage);
                 final validFaces = faces
-                    .where((f) => f.boundingBox.width >= 40 && f.boundingBox.height >= 40)
+                    .where((f) => f.boundingBox.width >= 65 && f.boundingBox.height >= 65)
                     .toList()
                   ..sort((a, b) =>
                       (b.boundingBox.width * b.boundingBox.height)
@@ -263,10 +265,12 @@ class FaceDetectionService {
                     decoded = img.decodeImage(thumbBytes);
                   } catch (_) {}
 
-                  // Process up to 5 clear faces per photo
+                  // Process up to 5 clear, front-facing faces per photo
                   for (final face in validFaces.take(5)) {
-                    if (face.headEulerAngleY != null && face.headEulerAngleY!.abs() > 22) continue;
-                    if (face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 25) continue;
+                    // Strict 3D Pose Gate: Reject tilted angles to prevent perspective distortion
+                    if (face.headEulerAngleX != null && face.headEulerAngleX!.abs() > 16) continue; // Pitch (up/down)
+                    if (face.headEulerAngleY != null && face.headEulerAngleY!.abs() > 18) continue; // Yaw (left/right)
+                    if (face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 18) continue; // Roll (sideways tilt)
 
                     final features = _extractFeatureVector(face, 512, 512);
                     if (features.isEmpty) continue;
@@ -349,7 +353,7 @@ class FaceDetectionService {
     AiScanCoordinator.instance.releaseEngine(AiScanEngine.face);
   }
 
-  /// Feature extraction using Inter-Pupillary Distance (IPD) normalization
+  /// Feature extraction using Inter-Pupillary Distance (IPD) normalization & multi-point facial biometrics
   static List<double> _extractFeatureVector(Face face, int imgW, int imgH) {
     final leftEye = face.landmarks[FaceLandmarkType.leftEye]?.position;
     final rightEye = face.landmarks[FaceLandmarkType.rightEye]?.position;
@@ -357,6 +361,8 @@ class FaceDetectionService {
     final leftMouth = face.landmarks[FaceLandmarkType.leftMouth]?.position;
     final rightMouth = face.landmarks[FaceLandmarkType.rightMouth]?.position;
     final bottomMouth = face.landmarks[FaceLandmarkType.bottomMouth]?.position;
+    final leftCheek = face.landmarks[FaceLandmarkType.leftCheek]?.position;
+    final rightCheek = face.landmarks[FaceLandmarkType.rightCheek]?.position;
 
     // Must have clear eyes and nose for reliable biometric mapping
     if (leftEye == null || rightEye == null || nose == null) {
@@ -366,7 +372,8 @@ class FaceDetectionService {
     final eyeDist = math.sqrt(math.pow(rightEye.x - leftEye.x, 2) +
         math.pow(rightEye.y - leftEye.y, 2));
 
-    if (eyeDist < 12.0) return []; // Face too small / low-res for reliable biometrics
+    // High quality gate: Eye distance must be >= 20px in the 512px thumbnail to prevent quantization noise
+    if (eyeDist < 20.0) return [];
 
     final midEyeY = (leftEye.y + rightEye.y) / 2.0;
     final eyeToNose = (nose.y - midEyeY).abs();
@@ -382,17 +389,45 @@ class FaceDetectionService {
           math.pow(rightMouth.y - leftMouth.y, 2));
     }
 
-    // IPD Normalization (Inter-Pupillary Distance) - independent of bounding box detector jitter
+    // 1-4: Primary vertical and mouth IPD ratios (backward compatible order)
     final eyeToNoseRatio = (eyeToNose / eyeDist).clamp(0.2, 2.5);
     final noseToMouthRatio = (noseToMouth / eyeDist).clamp(0.2, 2.5);
     final mouthWidthRatio = (mouthWidth / eyeDist).clamp(0.3, 2.5);
     final eyeToMouthRatio = ((eyeToNose + noseToMouth) / eyeDist).clamp(0.4, 3.5);
+
+    // 5: Cheekbone width ratio (stable bone structure invariant to expressions)
+    double cheekWidthRatio = (face.boundingBox.width / eyeDist).clamp(0.8, 3.0);
+    if (leftCheek != null && rightCheek != null) {
+      final cheekDist = math.sqrt(math.pow(rightCheek.x - leftCheek.x, 2) +
+          math.pow(rightCheek.y - leftCheek.y, 2));
+      cheekWidthRatio = (cheekDist / eyeDist).clamp(0.8, 3.0);
+    }
+
+    // 6: Eye to cheek vertical proportion
+    double eyeToCheekRatio = (eyeToNose / eyeDist).clamp(0.2, 2.0);
+    if (leftCheek != null && rightCheek != null) {
+      final midCheekY = (leftCheek.y + rightCheek.y) / 2.0;
+      eyeToCheekRatio = ((midCheekY - midEyeY).abs() / eyeDist).clamp(0.2, 2.0);
+    }
+
+    // 7: Facial elongation aspect ratio (bounding box height / width)
+    final faceBoxWidth = face.boundingBox.width > 0 ? face.boundingBox.width : 1.0;
+    final faceAspect = (face.boundingBox.height / faceBoxWidth).clamp(0.8, 2.2);
+
+    // 8: Facial symmetry balance (left eye to nose vs right eye to nose)
+    final leftEyeToNose = math.sqrt(math.pow(nose.x - leftEye.x, 2) + math.pow(nose.y - leftEye.y, 2));
+    final rightEyeToNose = math.sqrt(math.pow(nose.x - rightEye.x, 2) + math.pow(nose.y - rightEye.y, 2));
+    final symmetryRatio = (leftEyeToNose / (rightEyeToNose > 0 ? rightEyeToNose : 1.0)).clamp(0.5, 2.0);
 
     return [
       eyeToNoseRatio,
       noseToMouthRatio,
       mouthWidthRatio,
       eyeToMouthRatio,
+      cheekWidthRatio,
+      eyeToCheekRatio,
+      faceAspect,
+      symmetryRatio,
     ];
   }
 
@@ -413,9 +448,9 @@ class FaceDetectionService {
       }
     }
 
-    // Balanced similarity threshold: 0.875 (allows up to 12.5% natural expression variance)
-    // Matches the same person smiling, laughing, or wearing glasses; rejects different people (>20% difference)
-    if (bestMatch != null && highestSimilarity >= 0.875) {
+    // High-confidence similarity threshold: 0.895
+    // Matches the same person with expression/lighting variations while firmly separating distinct individuals
+    if (bestMatch != null && highestSimilarity >= 0.895) {
       bestMatch.addPhoto(item, features, newAvatar: avatarBytes);
     } else {
       final newCluster = PersonCluster(

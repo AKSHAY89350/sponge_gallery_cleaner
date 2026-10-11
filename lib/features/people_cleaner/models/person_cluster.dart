@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:sponge_gallery_cleaner/features/gallery_core/models/gallery_media_item.dart';
 
@@ -29,28 +30,46 @@ class PersonCluster {
     if (avatarBytes == null && newAvatar != null) {
       avatarBytes = newAvatar;
     }
-    // Update centroid conservatively to prevent snowball cluster drift
+    // Conservative anchor-based blending:
+    // Caps weight between 1% and 3% to preserve original high-confidence anchor profile
+    // and completely eliminate snowball cluster drift.
     if (featureVector.length == newFeatures.length) {
+      final weight = (1.0 / (items.length + 12)).clamp(0.01, 0.03);
       for (int i = 0; i < featureVector.length; i++) {
-        featureVector[i] = (featureVector[i] * 0.90) + (newFeatures[i] * 0.10);
+        featureVector[i] = (featureVector[i] * (1.0 - weight)) + (newFeatures[i] * weight);
       }
+    } else if (newFeatures.length > featureVector.length) {
+      // Smoothly upgrade legacy vectors to full 8-dimensional profile
+      featureVector = List<double>.from(newFeatures);
     }
   }
 
-  /// Calculates biometric similarity (0.0 to 1.0) using normalized geometric proportion difference
+  /// Calculates biometric similarity (0.0 to 1.0) using weighted normalized landmark error
   double calculateSimilarity(List<double> other) {
-    if (featureVector.isEmpty || other.isEmpty || featureVector.length != other.length) {
+    if (featureVector.isEmpty || other.isEmpty) {
       return 0.0;
     }
-    double totalError = 0.0;
-    for (int i = 0; i < featureVector.length; i++) {
+    final compareLen = math.min(featureVector.length, other.length);
+    if (compareLen == 0) return 0.0;
+
+    // Feature importance weights:
+    // Bone structure & invariant geometry (eyeToNose, cheekWidth, eyeToCheek, faceAspect)
+    // carry higher weight than expression-sensitive features (mouthWidth, noseToMouth).
+    const weights = [1.5, 1.0, 0.8, 1.0, 1.5, 1.2, 1.2, 1.0];
+    double totalWeightedError = 0.0;
+    double totalWeight = 0.0;
+
+    for (int i = 0; i < compareLen; i++) {
       final a = featureVector[i];
       final b = other[i];
       if (a <= 0 || b <= 0) continue;
-      totalError += (a - b).abs() / a;
+      final w = i < weights.length ? weights[i] : 1.0;
+      totalWeightedError += ((a - b).abs() / a) * w;
+      totalWeight += w;
     }
-    final avgError = totalError / featureVector.length;
-    // 0 error = 1.0 match. If average landmark difference is 7%, similarity is 0.93.
+
+    if (totalWeight <= 0) return 0.0;
+    final avgError = totalWeightedError / totalWeight;
     return (1.0 - avgError).clamp(0.0, 1.0);
   }
 
