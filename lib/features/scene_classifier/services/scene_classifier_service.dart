@@ -22,24 +22,32 @@ class SceneClassifierService {
   static double get scanProgress =>
       totalToScan > 0 ? (scannedCount / totalToScan) : 0.0;
 
+  static const Set<String> _personKeywords = {
+    'person', 'human', 'face', 'portrait', 'selfie', 'smile',
+    'people', 'child', 'girl', 'boy', 'man', 'woman', 'crowd',
+    'model', 'player', 'head', 'hair', 'eyebrow', 'forehead',
+    'chin', 'cheeks', 'lady', 'gentleman', 'baby', 'toddler',
+    'group of people'
+  };
+
   static const Set<String> _foodKeywords = {
     'food', 'dish', 'cuisine', 'fast food', 'dessert', 'meal',
-    'drink', 'beverage', 'snack', 'fruit', 'meat', 'breakfast',
-    'lunch', 'dinner', 'baked goods', 'plate', 'cocktail', 'coffee',
-    'tea', 'cake', 'pizza', 'burger', 'sandwich', 'salad', 'bread',
-    'tableware', 'soup', 'pastry', 'vegetable', 'sweet', 'ice cream',
-    'seafood', 'cooking', 'restaurant', 'dining', 'recipe', 'snack food',
-    'finger food', 'delicacy', 'junk food'
+    'beverage', 'snack', 'fruit', 'meat', 'breakfast', 'lunch',
+    'dinner', 'baked goods', 'cocktail', 'coffee', 'tea', 'cake',
+    'pizza', 'burger', 'sandwich', 'salad', 'bread', 'soup',
+    'pastry', 'vegetable', 'sweet', 'ice cream', 'recipe',
+    'delicacy', 'junk food', 'noodle', 'pasta', 'sushi',
+    'steak', 'curry', 'pie', 'cookie', 'biscuit', 'chocolate',
+    'fried food', 'barbecue', 'bbq', 'roast', 'baking', 'snack food'
   };
 
   static const Set<String> _sceneryKeywords = {
     'nature', 'sky', 'sunset', 'sunrise', 'landscape', 'mountain',
-    'sea', 'ocean', 'beach', 'tree', 'water', 'lake', 'cloud',
-    'forest', 'scenery', 'wilderness', 'hill', 'coast', 'horizon',
-    'river', 'natural landscape', 'sunlight', 'plant', 'flower',
-    'valley', 'garden', 'waterfall', 'field', 'meadow', 'outdoor',
-    'scenic', 'wildlife', 'woodland', 'scenic viewpoint', 'dawn', 'dusk',
-    'bay', 'shore', 'reflection', 'countryside'
+    'ocean', 'beach', 'tree', 'lake', 'cloud', 'forest', 'scenery',
+    'wilderness', 'hill', 'coast', 'horizon', 'river', 'natural landscape',
+    'valley', 'waterfall', 'meadow', 'scenic', 'woodland',
+    'scenic viewpoint', 'dawn', 'dusk', 'countryside', 'mountain range',
+    'canyon', 'cliff', 'glacier', 'jungle', 'panorama', 'national park'
   };
 
   static const Set<String> _documentKeywords = {
@@ -47,13 +55,13 @@ class SceneClassifierService {
     'handwriting', 'book', 'newspaper', 'bill', 'ticket', 'font',
     'label', 'identity document', 'whiteboard', 'prescription',
     'certificate', 'letter', 'contract', 'form', 'passport',
-    'business card', 'diagram', 'poster', 'sheet music', 'stationery'
+    'business card', 'diagram', 'sheet music', 'stationery'
   };
 
   static bool _matchesKeywords(String text, Set<String> keywords) {
     if (keywords.contains(text)) return true;
     for (final kw in keywords) {
-      if (text.contains(kw) || kw.contains(text)) return true;
+      if (text.contains(kw)) return true;
     }
     return false;
   }
@@ -122,6 +130,28 @@ class SceneClassifierService {
     isCoolingDown = false;
     coolingDownSecondsRemaining = 0;
     AiScanCoordinator.instance.releaseEngine(AiScanEngine.scene);
+  }
+
+  /// Reset all categorized scene lists and scan history to start a clean re-scan
+  static Future<void> resetCategories(List<GalleryMediaItem> allItems) async {
+    isScanning = false;
+    isCoolingDown = false;
+    coolingDownSecondsRemaining = 0;
+    scannedCount = 0;
+    totalToScan = 0;
+    foodPhotos.clear();
+    sceneryPhotos.clear();
+    documentPhotos.clear();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('scene_food_ids');
+      await prefs.remove('scene_scenery_ids');
+      await prefs.remove('scene_document_ids');
+      for (final item in allItems) {
+        await prefs.remove('scene_scanned_${item.id}');
+      }
+    } catch (_) {}
   }
 
   /// Scan gallery photos for scenes using Bidirectional Two-Pointer concurrency (Limit = 2)
@@ -240,19 +270,51 @@ class SceneClassifierService {
 
                 final labels = await labeler.processImage(inputImage);
 
-                bool isFood = false;
-                bool isScenery = false;
-                bool isDoc = false;
+                double foodScore = 0.0;
+                double sceneryScore = 0.0;
+                double docScore = 0.0;
+                double personScore = 0.0;
 
                 for (final label in labels) {
                   final text = label.label.toLowerCase();
                   final conf = label.confidence;
+                  if (conf < 0.50) continue;
 
-                  if (conf >= 0.55) {
-                    if (_matchesKeywords(text, _foodKeywords)) isFood = true;
-                    if (_matchesKeywords(text, _sceneryKeywords)) isScenery = true;
-                    if (_matchesKeywords(text, _documentKeywords)) isDoc = true;
+                  if (_matchesKeywords(text, _personKeywords)) {
+                    personScore += conf;
                   }
+                  if (_matchesKeywords(text, _foodKeywords)) {
+                    foodScore += conf;
+                  }
+                  if (_matchesKeywords(text, _sceneryKeywords)) {
+                    sceneryScore += conf;
+                  }
+                  if (_matchesKeywords(text, _documentKeywords)) {
+                    docScore += conf;
+                  }
+                }
+
+                bool isFood = false;
+                bool isScenery = false;
+                bool isDoc = false;
+
+                // 1. Document / Receipts takes priority if strong text presence
+                if (docScore >= 0.65 && docScore > foodScore && docScore > sceneryScore) {
+                  isDoc = true;
+                }
+                // 2. Person Suppression:
+                // If photo is a portrait, selfie, or dominated by people,
+                // do NOT dump it into Food or Scenery. It belongs to People & Faces!
+                else if (personScore >= 0.70 || (personScore > 0.50 && personScore >= foodScore)) {
+                  // Suppressed: Person photo
+                }
+                // 3. Food & Dining: Culinary tags must dominate scenery & person
+                else if (foodScore >= 0.65 && foodScore >= sceneryScore && foodScore > personScore) {
+                  isFood = true;
+                }
+                // 4. Views & Scenery: Landscape/nature tags must dominate food & person
+                else if (sceneryScore >= 0.65 && sceneryScore > foodScore && sceneryScore > personScore) {
+                  isScenery = true;
                 }
 
                 bool hasNewCategory = false;

@@ -137,6 +137,42 @@ class _HomeTabState extends State<_HomeTab> {
     }
   }
 
+  Future<void> _confirmResetScenes() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16181F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reset AI Categories?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'This will clear previously categorized food, scenery, and document photos so you can run a fresh, accurate AI re-scan.',
+          style: TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reset & Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final provider = context.read<GalleryProvider>();
+      await SceneClassifierService.resetCategories(provider.allItems);
+      if (mounted) setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GalleryProvider>();
@@ -479,39 +515,54 @@ class _HomeTabState extends State<_HomeTab> {
                 ),
               ],
             ),
-            TextButton.icon(
-              onPressed: _triggerSceneScan,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                backgroundColor: const Color(0xFF16181F),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.restart_alt_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  tooltip: 'Reset AI Categories',
+                  onPressed: _confirmResetScenes,
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: _triggerSceneScan,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    backgroundColor: const Color(0xFF16181F),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: SceneClassifierService.isScanning
+                            ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+                            : const Color(0xFF10B981).withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                  icon: Icon(
+                    SceneClassifierService.isScanning
+                        ? Icons.pause_circle_rounded
+                        : Icons.play_circle_fill_rounded,
                     color: SceneClassifierService.isScanning
-                        ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
-                        : const Color(0xFF10B981).withValues(alpha: 0.4),
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF10B981),
+                    size: 18,
+                  ),
+                  label: Text(
+                    SceneClassifierService.isScanning ? 'Pause' : 'Scan',
+                    style: TextStyle(
+                      color: SceneClassifierService.isScanning
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFF10B981),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-              ),
-              icon: Icon(
-                SceneClassifierService.isScanning
-                    ? Icons.pause_circle_rounded
-                    : Icons.play_circle_fill_rounded,
-                color: SceneClassifierService.isScanning
-                    ? const Color(0xFF7C3AED)
-                    : const Color(0xFF10B981),
-                size: 18,
-              ),
-              label: Text(
-                SceneClassifierService.isScanning ? 'Pause' : 'Scan',
-                style: TextStyle(
-                  color: SceneClassifierService.isScanning
-                      ? const Color(0xFF7C3AED)
-                      : const Color(0xFF10B981),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+              ],
             ),
           ],
         ),
