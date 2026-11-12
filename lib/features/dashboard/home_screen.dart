@@ -11,6 +11,7 @@ import 'package:sponge_gallery_cleaner/features/storage_analyzer/screens/storage
 import 'package:sponge_gallery_cleaner/features/people_cleaner/screens/people_overview_screen.dart';
 import 'package:sponge_gallery_cleaner/core/widgets/modern_notification_banner.dart';
 import 'package:sponge_gallery_cleaner/features/scene_classifier/services/scene_classifier_service.dart';
+import 'package:sponge_gallery_cleaner/features/metadata_cleaner/screens/metadata_cleaner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -705,7 +706,20 @@ class _HomeTabState extends State<_HomeTab> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(child: SizedBox()),
+            Expanded(
+              child: _buildSmartCard(
+                context: context,
+                title: 'Metadata\nCleaner',
+                count: 0,
+                customSubtitle: 'EXIF / XMP',
+                icon: Icons.shield_rounded,
+                color: const Color(0xFF3B82F6),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MetadataCleanerScreen()),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -725,6 +739,7 @@ class _HomeTabState extends State<_HomeTab> {
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
+    String? customSubtitle,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -762,7 +777,7 @@ class _HomeTabState extends State<_HomeTab> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$count items',
+                    customSubtitle ?? '$count items',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
