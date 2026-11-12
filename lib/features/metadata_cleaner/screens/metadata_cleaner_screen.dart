@@ -21,6 +21,7 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
   bool _isBatchMode = true;
   bool _replaceOriginal = false;
   bool _isProcessing = false;
+  bool _cancelRequested = false;
   double _progress = 0.0;
   int _processedCount = 0;
   int _totalToProcess = 0;
@@ -35,33 +36,56 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
     final allVideos = provider.allItems.where((i) => i.isVideo).toList();
     final currentList = _activeFilter == MediaTypeFilter.image ? allPhotos : allVideos;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0E12),
-      appBar: AppBar(
+    return PopScope(
+      canPop: !_isProcessing,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isProcessing) {
+          ModernNotificationBanner.show(
+            context,
+            message: 'Cleaning in progress',
+            subtitle: 'Please wait or tap Cancel to stop.',
+            type: ModernBannerType.info,
+          );
+        }
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFF0D0E12),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Metadata Cleaner',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: -0.3,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0D0E12),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+            onPressed: () {
+              if (_isProcessing) {
+                ModernNotificationBanner.show(
+                  context,
+                  message: 'Cleaning in progress',
+                  subtitle: 'Please wait or tap Cancel to stop.',
+                  type: ModernBannerType.info,
+                );
+              } else {
+                Navigator.pop(context);
+              }
+            },
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded, color: Colors.white70),
-            tooltip: 'About Metadata Stripping',
-            onPressed: _showInfoDialog,
+          title: const Text(
+            'Metadata Cleaner',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
+            ),
           ),
-        ],
-      ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline_rounded, color: Colors.white70),
+              tooltip: 'About Metadata Stripping',
+              onPressed: _showInfoDialog,
+            ),
+          ],
+        ),
       body: SafeArea(
         child: Column(
           children: [
@@ -87,8 +111,9 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeaderDescription() {
     return Container(
@@ -457,16 +482,42 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  _statusText.isEmpty
-                      ? 'Stripping metadata...'
-                      : _statusText,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    _statusText.isEmpty
+                        ? 'Stripping metadata...'
+                        : _statusText,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
+                TextButton(
+                  onPressed: _cancelRequested
+                      ? null
+                      : () {
+                          setState(() {
+                            _cancelRequested = true;
+                            _statusText = 'Cancelling...';
+                          });
+                        },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _cancelRequested ? 'Stopping...' : 'Cancel',
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Text(
                   '$_processedCount / $_totalToProcess',
                   style: const TextStyle(
@@ -533,6 +584,7 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
     if (targets.isEmpty) return;
 
     HapticFeedback.mediumImpact();
+    _cancelRequested = false;
     setState(() {
       _isProcessing = true;
       _progress = 0.0;
@@ -545,6 +597,8 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
     int totalBytesSaved = 0;
 
     for (int i = 0; i < targets.length; i++) {
+      if (_cancelRequested) break;
+
       final item = targets[i];
       final entity = await AssetEntity.fromId(item.id);
 
@@ -570,10 +624,12 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
     }
 
     if (mounted) {
+      final wasCancelled = _cancelRequested;
       setState(() {
         _isProcessing = false;
-        _progress = 1.0;
-        _statusText = 'Complete!';
+        _cancelRequested = false;
+        _progress = wasCancelled ? _progress : 1.0;
+        _statusText = wasCancelled ? 'Cancelled' : 'Complete!';
         _selectedItemIds.clear();
       });
 
@@ -585,11 +641,13 @@ class _MetadataCleanerScreenState extends State<MetadataCleanerScreen> {
           : '';
       ModernNotificationBanner.show(
         context,
-        message: 'Stripped metadata from $successCount items$sizeStr',
+        message: wasCancelled
+            ? 'Stopped: Cleaned $successCount items$sizeStr'
+            : 'Stripped metadata from $successCount items$sizeStr',
         subtitle: _replaceOriginal
             ? 'Originals replaced with sanitized copies'
             : 'Clean copies saved to your gallery',
-        type: ModernBannerType.success,
+        type: wasCancelled ? ModernBannerType.info : ModernBannerType.success,
       );
     }
   }

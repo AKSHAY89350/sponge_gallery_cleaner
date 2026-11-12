@@ -167,6 +167,50 @@ class MetadataStripperService {
     return copy;
   }
 
+  /// Recursively seeks and wipes 'udta' user metadata boxes in a RandomAccessFile.
+  static Future<void> _wipeUdtaInRaf(RandomAccessFile raf, int start, int end) async {
+    int offset = start;
+    final headerBuffer = Uint8List(8);
+
+    while (offset + 8 <= end) {
+      await raf.setPosition(offset);
+      final bytesRead = await raf.readInto(headerBuffer, 0, 8);
+      if (bytesRead < 8) break;
+
+      int size = (headerBuffer[0] << 24) |
+          (headerBuffer[1] << 16) |
+          (headerBuffer[2] << 8) |
+          headerBuffer[3];
+
+      final type = String.fromCharCodes(headerBuffer.sublist(4, 8));
+
+      if (size == 1) {
+        // 64-bit size field
+        final extHeader = Uint8List(8);
+        await raf.readInto(extHeader, 0, 8);
+        size = (extHeader[4] << 24) |
+            (extHeader[5] << 16) |
+            (extHeader[6] << 8) |
+            extHeader[7];
+      }
+
+      if (size < 8 || offset + size > end) break;
+
+      if (type == 'udta') {
+        // Overwrite 'udta' box type with 'free' atom and zero out payload
+        await raf.setPosition(offset + 4);
+        await raf.writeFrom([0x66, 0x72, 0x65, 0x65]); // 'free'
+        final zeroBuffer = Uint8List(size - 8);
+        await raf.writeFrom(zeroBuffer);
+      } else if (type == 'moov' || type == 'trak') {
+        // Recurse into container boxes
+        await _wipeUdtaInRaf(raf, offset + 8, offset + size);
+      }
+
+      offset += size;
+    }
+  }
+
   /// Cleans an image or video file and saves it back as a sanitized media asset.
   static Future<MetadataCleanResult> cleanAsset({
     required AssetEntity asset,
@@ -178,16 +222,56 @@ class MetadataStripperService {
         return const MetadataCleanResult(success: false, error: 'File not accessible');
       }
 
-      final originalBytes = await file.readAsBytes();
-      final originalLength = originalBytes.length;
       final ext = asset.title?.split('.').last.toLowerCase() ??
           (asset.type == AssetType.video ? 'mp4' : 'jpg');
+      final cleanTitle = 'clean_${asset.title ?? "media.$ext"}';
+
+      // STREAMING OPTIMIZATION FOR VIDEOS:
+      // Large videos (1GB - 5GB) must NOT be loaded into RAM with readAsBytes() to prevent OOM crash.
+      if (asset.type == AssetType.video || ext == 'mp4' || ext == 'mov') {
+        final tempDir = Directory.systemTemp;
+        final tempCleanFile = File('${tempDir.path}/$cleanTitle');
+
+        // Stream original to temp file with constant 64KB chunk buffer
+        final sink = tempCleanFile.openWrite();
+        await file.openRead().pipe(sink);
+
+        // Wipe udta/GPS/camera tags in-place in the temp file
+        final raf = await tempCleanFile.open(mode: FileMode.append);
+        try {
+          final fileLength = await raf.length();
+          await _wipeUdtaInRaf(raf, 0, fileLength);
+        } finally {
+          await raf.close();
+        }
+
+        final newAsset = await PhotoManager.editor.saveVideo(
+          tempCleanFile,
+          title: cleanTitle,
+        );
+
+        try {
+          if (await tempCleanFile.exists()) {
+            await tempCleanFile.delete();
+          }
+        } catch (_) {}
+
+        if (replaceOriginal) {
+          await PhotoManager.editor.deleteWithIds([asset.id]);
+        }
+
+        return MetadataCleanResult(
+          success: true,
+          savedAssetId: newAsset.id,
+        );
+      }
+
+      // IMAGE PROCESSING:
+      final originalBytes = await file.readAsBytes();
+      final originalLength = originalBytes.length;
 
       Uint8List cleanedBytes;
-
-      if (asset.type == AssetType.video || ext == 'mp4' || ext == 'mov') {
-        cleanedBytes = stripMp4Metadata(originalBytes);
-      } else if (ext == 'png') {
+      if (ext == 'png') {
         cleanedBytes = stripPngMetadata(originalBytes);
       } else {
         cleanedBytes = stripJpegMetadata(originalBytes);
@@ -195,31 +279,11 @@ class MetadataStripperService {
 
       final bytesDiff = originalLength - cleanedBytes.length;
 
-      // Save sanitized asset
-      final AssetEntity newAsset;
-      final cleanTitle = 'clean_${asset.title ?? "media.$ext"}';
-
-      if (asset.type == AssetType.video) {
-        // For video, write clean bytes to a temp file and save
-        final tempDir = Directory.systemTemp;
-        final tempCleanFile = File('${tempDir.path}/$cleanTitle');
-        await tempCleanFile.writeAsBytes(cleanedBytes);
-        newAsset = await PhotoManager.editor.saveVideo(
-          tempCleanFile,
-          title: cleanTitle,
-        );
-        try {
-          if (await tempCleanFile.exists()) {
-            await tempCleanFile.delete();
-          }
-        } catch (_) {}
-      } else {
-        newAsset = await PhotoManager.editor.saveImage(
-          cleanedBytes,
-          title: cleanTitle,
-          filename: cleanTitle,
-        );
-      }
+      final newAsset = await PhotoManager.editor.saveImage(
+        cleanedBytes,
+        title: cleanTitle,
+        filename: cleanTitle,
+      );
 
       if (replaceOriginal) {
         await PhotoManager.editor.deleteWithIds([asset.id]);
